@@ -63,6 +63,12 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
+Or use the prebuilt image (auto-built and published to GHCR on every push to `main`):
+
+```bash
+docker pull ghcr.io/paipaiio/telegram-customer-service-bot:latest
+```
+
 Quality checks:
 
 ```bash

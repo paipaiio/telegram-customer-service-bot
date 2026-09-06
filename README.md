@@ -68,6 +68,12 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
+使用预构建镜像 / Use the prebuilt image (push 后自动构建发布到 GHCR / auto-built and published to GHCR on every push):
+
+```bash
+docker pull ghcr.io/paipaiio/telegram-customer-service-bot:latest
+```
+
 质量检查 / Checks:
 
 ```bash
