@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ForumDesk · Telegram Topic 私聊中转</title>
+  <title>ForumDesk · Telegram Topic 私聊中转 / DM-to-Topic Relay</title>
   <style>
     :root{--bg:#09111f;--panel:#111c2e;--line:#263650;--text:#eaf1ff;--muted:#99aac4;--brand:#59a9ff;--ok:#4bd29b;--warn:#ffcc70}
     *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% 0,#15335a 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -17,6 +17,7 @@
     .flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:10px;text-align:center}.flow div{padding:18px 10px;border-radius:13px;background:#15253c;border:1px solid var(--line)}.arrow{color:var(--brand);font-size:22px}
     pre{position:relative;margin:0;overflow:auto;background:#07101d;border:1px solid #20314a;border-radius:12px;padding:18px;color:#d8e9ff;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}.code-wrap{position:relative}.copy{position:absolute;right:10px;top:10px;z-index:2;border:1px solid #3a5477;background:#14243a;color:#dcecff;border-radius:8px;padding:6px 9px;cursor:pointer}.copy:hover{background:#1c385a}
     code{color:#a8d4ff}.ok{color:var(--ok)}.warn{color:var(--warn)}ol{padding-left:20px}.note{border-left:3px solid var(--brand);padding:10px 14px;background:#10243c;color:#bed6ef;border-radius:0 10px 10px 0}
+    .en{color:var(--muted);font-size:.92em}
     footer{margin-top:48px;color:var(--muted);font-size:13px}@media(max-width:760px){.shell{display:block;padding:20px 14px 60px}nav{position:static;margin-bottom:22px}.hero h1{font-size:34px}.grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
   </style>
 </head>
@@ -24,79 +25,83 @@
 <div class="shell">
   <nav>
     <b>ForumDesk</b>
-    <a href="#overview">项目概览</a><a href="#flow">工作流程</a><a href="#setup">首次配置</a><a href="#message-actions">编辑与删除</a><a href="#clear">整段删除</a><a href="#privacy">引用与内容保护</a><a href="#commands">管理员命令</a><a href="#run">启动方式</a><a href="#structure">项目结构</a><a href="#status">当前边界</a>
+    <a href="#overview">项目概览 Overview</a><a href="#flow">工作流程 Workflow</a><a href="#setup">首次配置 Setup</a><a href="#message-actions">编辑与删除 Edit &amp; Delete</a><a href="#clear">批量清理 Clear</a><a href="#privacy">引用与内容保护 Privacy</a><a href="#commands">管理员命令 Commands</a><a href="#run">启动方式 Run</a><a href="#structure">项目结构 Structure</a><a href="#status">当前边界 Roadmap</a>
   </nav>
   <main>
     <header class="hero" id="overview">
-      <span class="tag">基础版本 · Go</span>
-      <h1>把每位私聊用户<br>放进独立 Topic</h1>
-      <p>用户私聊 Bot 后，ForumDesk 自动在私有超级群创建专属 Topic。用户消息进入对应 Topic，管理员在 Topic 里的回复再由 Bot 发回用户。</p>
-      <div class="chips"><span class="chip">单用户单 Topic</span><span class="chip">双向引用</span><span class="chip">内容保护</span><span class="chip">双向编辑</span><span class="chip">双端删除</span></div>
+      <span class="tag">基础版本 Base · Go</span>
+      <h1>把每位私聊用户<br>放进独立 Topic<br><span style="font-size:.55em;color:var(--muted)">Every DM user gets a dedicated forum topic</span></h1>
+      <p>用户私聊 Bot 后，ForumDesk 自动在私有超级群创建专属 Topic。用户消息进入对应 Topic，管理员在 Topic 里的回复再由 Bot 发回用户。<br><span class="en">When a user DMs the bot, ForumDesk auto-creates a dedicated topic in a private supergroup. User messages land in that topic; agent replies are relayed back to the user.</span></p>
+      <div class="chips"><span class="chip">单用户单 Topic · One topic per user</span><span class="chip">双向引用 · Quote mapping</span><span class="chip">内容保护 · Content protection</span><span class="chip">双向编辑 · Edit sync</span><span class="chip">双端删除 · Two-side deletion</span></div>
     </header>
 
-    <section id="flow"><h2>工作流程</h2><div class="card flow"><div>Telegram 用户</div><span class="arrow">→</span><div>ForumDesk Bot</div><span class="arrow">→</span><div>客服群 Topic</div></div>
-      <div class="grid"><div class="card"><b class="ok">用户 → 客服</b><p>首次消息创建 Topic 和用户资料卡；之后所有消息复用同一 Topic。</p></div><div class="card"><b class="ok">客服 → 用户</b><p>管理员直接在 Topic 发消息，Bot 根据 Topic 映射复制给对应用户。</p></div></div>
+    <section id="flow"><h2>工作流程 / How It Works</h2><div class="card flow"><div>Telegram 用户<br><span class="en">User</span></div><span class="arrow">→</span><div>ForumDesk Bot</div><span class="arrow">→</span><div>客服群 Topic<br><span class="en">Support Topic</span></div></div>
+      <div class="grid"><div class="card"><b class="ok">用户 → 客服 / User → Agent</b><p>首次消息创建 Topic 和用户资料卡；之后所有消息复用同一 Topic。<br><span class="en">The first message creates the topic and a profile card; all later messages reuse it.</span></p></div><div class="card"><b class="ok">客服 → 用户 / Agent → User</b><p>管理员直接在 Topic 发消息，Bot 根据 Topic 映射复制给对应用户。<br><span class="en">Agents reply directly in the topic; the bot maps the topic back to the user and delivers the message.</span></p></div></div>
     </section>
 
-    <section id="setup"><h2>首次配置</h2>
-      <ol><li>通过 BotFather 创建 Bot 并取得 Token。</li><li>创建私有超级群，开启“话题 / Topics”。</li><li>把 Bot 设为管理员，并授予管理话题、发送消息和删除消息权限。</li><li>复制配置文件并填入 Token 与群 ID。</li></ol>
-      <div class="code-wrap"><button class="copy" data-copy="env">复制</button><pre id="env">cp .env.example .env
+    <section id="setup"><h2>首次配置 / Setup</h2>
+      <ol><li>通过 BotFather 创建 Bot 并取得 Token。<span class="en">Create a bot via @BotFather and get the token.</span></li><li>创建私有超级群，开启“话题 / Topics”。<span class="en">Create a private supergroup and enable Topics.</span></li><li>把 Bot 设为管理员，并授予管理话题、发送消息和删除消息权限。<span class="en">Add the bot as admin with Manage Topics, Send Messages, Delete Messages.</span></li><li>复制配置文件并填入 Token 与群 ID。<span class="en">Copy the config and fill in token and group ID.</span></li></ol>
+      <div class="code-wrap"><button class="copy" data-copy="env">复制 Copy</button><pre id="env">cp .env.example .env
 
-# 编辑 .env
+# 编辑 .env / edit .env
 BOT_TOKEN=123456789:YOUR_TOKEN
 SUPPORT_GROUP_ID=-1001234567890
 DATA_FILE=./data/forumdesk.json</pre></div>
-      <p class="note">Topic 没有独立头像。基础版会把用户头像作为 Topic 的第一张资料卡图片，视觉上实现接近的效果。</p>
+      <p class="note">Topic 没有独立头像。基础版会把用户头像作为 Topic 的第一张资料卡图片，视觉上实现接近的效果。<br><span class="en">Topics have no avatar; the bot uses the user's avatar as the first profile-card image to approximate one.</span></p>
     </section>
 
-    <section id="message-actions"><h2>编辑与删除</h2><div class="grid">
-      <div class="card"><b class="ok">按方向同步编辑</b><p>客服编辑 Topic 消息时，Bot 直接修改用户看到的消息；用户编辑时，Topic 会引用原消息并追加“用户修改为”的新内容。</p></div>
-      <div class="card"><b class="ok">删除双方消息</b><p>回复需要删除的消息并发送 <code>/delete</code> 或 <code>/del</code>，Bot 会删除两端消息及删除命令。</p></div>
-    </div><p class="note">普通 Bot API 不会推送常规消息的删除事件，所以直接点 Telegram 的“删除”只影响当前一端。请使用回复命令触发双端删除；Telegram 的常规删除时限和管理员权限规则仍然适用。</p></section>
+    <section id="message-actions"><h2>编辑与删除 / Edit &amp; Delete</h2><div class="grid">
+      <div class="card"><b class="ok">按方向同步编辑 / Direction-aware edit sync</b><p>客服编辑 Topic 消息时，Bot 直接修改用户看到的消息；用户编辑时，Topic 会引用原消息并追加“用户修改为”的新内容。<br><span class="en">Agent edits update the user's message in place; user edits are appended in the topic with a reference to the original.</span></p></div>
+      <div class="card"><b class="ok">删除双方消息 / Two-side deletion</b><p>回复需要删除的消息并发送 <code>/delete</code> 或 <code>/del</code>，Bot 会删除两端消息及删除命令。<br><span class="en">Reply to a message with <code>/delete</code> or <code>/del</code> to remove it on both ends, including the command itself.</span></p></div>
+    </div><p class="note">普通 Bot API 不会推送常规消息的删除事件，所以直接点 Telegram 的“删除”只影响当前一端。请使用回复命令触发双端删除；Telegram 的常规删除时限和管理员权限规则仍然适用。<br><span class="en">The Bot API doesn't deliver deletion events for normal messages, so deleting via the Telegram UI only affects one side. Use the reply command for two-side removal; Telegram's deletion time limits and admin rules still apply.</span></p></section>
 
-    <section id="clear"><h2>管理员批量删除整段对话</h2><div class="card"><p>在目标 Topic 发送 <code>/clear</code> 查看危险操作确认，再发送 <code>/clear confirm</code>。Bot 会按每批 100 条删除用户端映射消息，删除整个 Topic，最后清理本地会话映射。</p><div class="code-wrap"><button class="copy" data-copy="clear-code">复制</button><pre id="clear-code">/clear
-/clear confirm</pre></div></div><p class="note">该命令只在管理员 Topic 生效。用户端命令菜单不包含整段删除；Telegram 对用户私聊消息的删除时限仍然适用。</p></section>
+    <section id="clear"><h2>管理员批量清理 / Batch Cleanup</h2><div class="grid">
+      <div class="card"><b class="ok">双方清空，保留资料卡 / Clear both sides, keep profile card</b><p>在目标 Topic 发送 <code>/clear</code>，再发送 <code>/clear confirm</code>。Bot 会按每批 100 条清理用户端和管理端的对话消息，包括 <code>/protect</code>、<code>/clear_user</code> 等管理命令及 Bot 响应；Topic、会话映射与首条用户资料卡继续保留。<br><span class="en">Send <code>/clear</code> then <code>/clear confirm</code> in the topic. The bot clears conversation messages on both user and admin sides in batches of 100, including admin commands like <code>/protect</code>, <code>/clear_user</code> and bot responses; the topic, session mapping, and the first profile card are kept.</span></p><div class="code-wrap"><button class="copy" data-copy="clear-code">复制 Copy</button><pre id="clear-code">/clear
+/clear confirm</pre></div></div>
+      <div class="card"><b class="ok">仅清空用户端 / Clear user side only</b><p>发送 <code>/clear_user</code> 并确认后，用户私聊页的映射消息会被清理，管理端 Topic 历史和资料卡均保留。<br><span class="en">Send <code>/clear_user</code> and confirm to clear mapped messages in the user's DM; admin topic history and the profile card are kept.</span></p><div class="code-wrap"><button class="copy" data-copy="clear-user-code">复制 Copy</button><pre id="clear-user-code">/clear_user
+/clear_user confirm</pre></div></div>
+    </div><p class="note">两种命令均只在管理员 Topic 生效。用户端命令菜单仅包含单条删除；Telegram 的常规删除时限和权限规则仍然适用。<br><span class="en">Both commands only work in admin topics. The user-side menu only includes single-message deletion; Telegram's deletion time limits and permission rules still apply.</span></p></section>
 
-    <section id="privacy"><h2>引用与内容保护</h2><div class="grid">
-      <div class="card"><b class="ok">引用自动映射</b><p>客服在 Topic 引用历史消息时，用户端会引用对应的消息副本；用户的引用也会映射回 Topic。</p></div>
-      <div class="card"><b class="ok">禁止截图、转发与保存</b><p>在当前用户 Topic 发送 <code>/protect on</code>，之后 Bot 发出的消息都会附带 Telegram 内容保护标记；使用 <code>/protect off</code> 关闭。</p></div>
-    </div><div class="code-wrap"><button class="copy" data-copy="protect">复制</button><pre id="protect">/protect on
+    <section id="privacy"><h2>引用与内容保护 / Quotes &amp; Content Protection</h2><div class="grid">
+      <div class="card"><b class="ok">引用自动映射 / Automatic quote mapping</b><p>客服在 Topic 引用历史消息时，用户端会引用对应的消息副本；用户的引用也会映射回 Topic。<br><span class="en">When an agent quotes a message in the topic, the user sees a quote of their own copy; user quotes map back to the topic.</span></p></div>
+      <div class="card"><b class="ok">禁止转发与保存 / No forwarding or saving</b><p>在当前用户 Topic 发送 <code>/protect on</code>，之后 Bot 发出的消息都会附带 Telegram 内容保护标记；使用 <code>/protect off</code> 关闭。<br><span class="en">Send <code>/protect on</code> in a user's topic and all subsequent bot messages carry Telegram's protect-content flag; use <code>/protect off</code> to disable.</span></p></div>
+    </div><div class="code-wrap"><button class="copy" data-copy="protect">复制 Copy</button><pre id="protect">/protect on
 /protect off
-/protect</pre></div><p class="note">Bot 私聊采用逐条消息保护，开关状态和提示只显示在管理员 Topic；用户端不接收保护状态通知。用户自己发出的原始消息和已有消息维持原状态。</p></section>
+/protect</pre></div><p class="note">Bot 私聊采用逐条消息保护，开关状态和提示只显示在管理员 Topic；用户端不接收保护状态通知。Telegram 将 <code>protect_content</code> 定义为发送时参数，所以已有消息保持原状态，程序不替换或重发历史消息。<br><span class="en">Protection applies per-message in DMs; status and hints only appear in the admin topic — users receive no notification. Telegram defines <code>protect_content</code> as a send-time parameter, so existing messages keep their original state and are never replaced or resent.</span></p></section>
 
-    <section id="commands"><h2>管理员命令菜单</h2><div class="card"><p>程序启动时自动调用 Telegram <code>setMyCommands</code>。管理员在 Topic 输入 <code>/</code> 后会看到：</p><ul><li><code>/protect</code> — 查看或设置内容保护</li><li><code>/delete</code> — 回复消息后双端删除</li><li><code>/clear</code> — 双向删除整段对话</li><li><code>/help</code> — 显示完整说明</li></ul><p>用户私聊输入 <code>/</code> 时只显示 <code>/delete</code> 和 <code>/help</code>。</p></div></section>
+    <section id="commands"><h2>管理员命令菜单 / Admin Command Menu</h2><div class="card"><p>程序启动时自动调用 Telegram <code>setMyCommands</code>。管理员在 Topic 输入 <code>/</code> 后会看到：<br><span class="en">The bot calls Telegram <code>setMyCommands</code> on startup. Admins typing <code>/</code> in a topic will see:</span></p><ul><li><code>/protect</code> — 查看或设置后续消息保护 / View or toggle protection for subsequent messages</li><li><code>/delete</code> — 回复消息后双端删除 / Delete a replied message on both ends</li><li><code>/clear</code> — 清空双方消息并保留资料卡 / Clear both sides, keep profile card</li><li><code>/clear_user</code> — 仅清空用户端 / Clear user side only</li><li><code>/help</code> — 显示完整说明 / Show full help</li></ul><p>用户私聊输入 <code>/</code> 时只显示 <code>/delete</code> 和 <code>/help</code>。<br><span class="en">Users only see <code>/delete</code> and <code>/help</code> in their private chat.</span></p></div></section>
 
-    <section id="run"><h2>启动方式</h2>
-      <div class="grid"><div class="card"><b>本机运行</b><p>适合开发调试。</p><div class="code-wrap"><button class="copy" data-copy="local">复制</button><pre id="local">set -a
+    <section id="run"><h2>启动方式 / Run</h2>
+      <div class="grid"><div class="card"><b>本机运行 / Local</b><p>适合开发调试。<span class="en">For development.</span></p><div class="code-wrap"><button class="copy" data-copy="local">复制 Copy</button><pre id="local">set -a
 source .env
 set +a
 go run ./cmd/forumdesk</pre></div></div>
-      <div class="card"><b>Docker Compose</b><p>适合常驻部署。</p><div class="code-wrap"><button class="copy" data-copy="docker">复制</button><pre id="docker">docker compose up -d --build
+      <div class="card"><b>Docker Compose</b><p>适合常驻部署。<span class="en">For long-running deployment.</span></p><div class="code-wrap"><button class="copy" data-copy="docker">复制 Copy</button><pre id="docker">docker compose up -d --build
 docker compose logs -f</pre></div></div></div>
-      <div class="card"><b>质量检查</b><div class="code-wrap"><button class="copy" data-copy="quality">复制</button><pre id="quality">go test ./...
+      <div class="card"><b>质量检查 / Quality Checks</b><div class="code-wrap"><button class="copy" data-copy="quality">复制 Copy</button><pre id="quality">go test ./...
 go vet ./...
 make coverage</pre></div></div>
     </section>
 
-    <section id="structure"><h2>项目结构</h2><div class="code-wrap"><button class="copy" data-copy="tree">复制</button><pre id="tree">cmd/forumdesk/       程序入口
-internal/app/        长轮询运行器
-internal/bot/        Topic 双向路由
-internal/config/     环境变量配置
-internal/store/      JSON 原子持久化
-internal/telegram/   Telegram Bot API 客户端
-data/                运行数据（自动创建）</pre></div></section>
+    <section id="structure"><h2>项目结构 / Project Structure</h2><div class="code-wrap"><button class="copy" data-copy="tree">复制 Copy</button><pre id="tree">cmd/forumdesk/       程序入口 / entrypoint
+internal/app/        长轮询运行器 / long-polling runner
+internal/bot/        Topic 双向路由 / two-way topic routing
+internal/config/     环境变量配置 / env config
+internal/store/      JSON 原子持久化 / atomic JSON persistence
+internal/telegram/   Telegram Bot API 客户端 / Bot API client
+data/                运行数据（自动创建）/ runtime data (auto-created)</pre></div></section>
 
-    <section id="status"><h2>当前基础能力与边界</h2><div class="grid">
-      <div class="card"><b class="ok">已经具备</b><ul><li>自动创建和复用 Topic</li><li>文本、图片、语音、视频、文件等消息复制</li><li>客服与用户双向引用映射</li><li>按 Topic 开关禁止转发/保存</li><li>单条双端删除、管理员整段清理</li></ul></div>
-      <div class="card"><b class="warn">后续增强</b><ul><li>封禁、关闭会话和客服认领按钮</li><li>相册批量消息保持分组</li><li>PostgreSQL 多实例部署</li><li>监控、速率限制和管理后台</li></ul></div>
+    <section id="status"><h2>当前基础能力与边界 / Capabilities &amp; Roadmap</h2><div class="grid">
+      <div class="card"><b class="ok">已经具备 / Available</b><ul><li>自动创建和复用 Topic / Auto topic creation &amp; reuse</li><li>文本、图片、语音、视频、文件等消息复制 / Text, photo, voice, video, document relay</li><li>客服与用户双向引用映射 / Two-way quote mapping</li><li>按 Topic 开关禁止转发/保存 / Per-topic content protection</li><li>单条双端删除 / Single-message two-side deletion</li><li>保留资料卡的双端清空与仅用户端清空 / Two-side or user-only clear keeping the profile card</li></ul></div>
+      <div class="card"><b class="warn">后续增强 / Roadmap</b><ul><li>封禁、关闭会话和客服认领按钮 / Ban, close &amp; claim buttons</li><li>相册批量消息保持分组 / Album grouping</li><li>PostgreSQL 多实例部署 / PostgreSQL multi-instance</li><li>监控、速率限制和管理后台 / Metrics, rate limits, admin dashboard</li></ul></div>
     </div></section>
-    <footer>ForumDesk 基础版 · 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。</footer>
+    <footer>ForumDesk 基础版 Base · 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。 / Config via environment variables only; the bot token is never written to code or data files.</footer>
   </main>
 </div>
 <script>
   document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{
     const text=document.getElementById(button.dataset.copy).innerText;
-    await navigator.clipboard.writeText(text);const old=button.textContent;button.textContent='已复制';setTimeout(()=>button.textContent=old,1200);
+    await navigator.clipboard.writeText(text);const old=button.textContent;button.textContent='已复制 Copied';setTimeout(()=>button.textContent=old,1200);
   }));
 </script>
 </body></html>
