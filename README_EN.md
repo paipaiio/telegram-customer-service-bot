@@ -2,6 +2,10 @@
 
 [中文说明 / Chinese README](README.md) | [图文文档 / Visual Docs](README.html)
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+**License**: [CC BY-NC-SA 4.0](LICENSE) — commercial use is prohibited. You may use, modify, and distribute with attribution, non-commercially, under the same license.
+
 A self-hosted Telegram customer service bot written in Go. Each user who DMs your bot gets a dedicated forum topic in a private support supergroup. Agents reply inside the topic, and the bot relays messages both ways — with quote mapping, edit sync, two-side deletion, and content protection.
 
 ## Features

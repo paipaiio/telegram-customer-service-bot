@@ -2,6 +2,10 @@
 
 [English README](README_EN.md) | [图文文档 / Visual Docs](README.html)
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+**许可证 / License**: [CC BY-NC-SA 4.0](LICENSE) — 禁止商用。允许使用、修改、分发，但必须署名、非商用、衍生作品采用相同许可证。Commercial use is prohibited; you may use, modify, and distribute with attribution, non-commercially, under the same license.
+
 一个自托管的 Telegram 客服机器人：把每位私聊用户放进私有超级群的独立 Topic（话题），客服在 Topic 里回复，Bot 自动双向中转。
 
 A self-hosted Telegram customer service bot: each private chat user gets a dedicated forum topic in a private supergroup. Agents reply inside the topic, and the bot relays messages both ways.
