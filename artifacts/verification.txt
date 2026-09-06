@@ -1,0 +1,405 @@
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	1.026s
+ok  	forumdesk/internal/bot	1.028s
+ok  	forumdesk/internal/config	1.025s
+ok  	forumdesk/internal/store	1.027s
+ok  	forumdesk/internal/telegram	1.031s
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-cover.out && go tool cover -func=/tmp/forumdesk-cover.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	(cached)	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	(cached)	coverage: 88.1% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	(cached)	coverage: 79.6% of statements
+ok  	forumdesk/internal/telegram	(cached)	coverage: 91.4% of statements
+total:						(statements)		82.5%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+EXIT_STATUS=0
+
+$ file dist/forumdesk && shasum -a 256 dist/forumdesk
+dist/forumdesk: Mach-O 64-bit executable arm64
+671bd2125731d1ab14532c7fa132def8ec29b8631df9b017daac15c7009250f5  dist/forumdesk
+EXIT_STATUS=0
+
+$ python3 -c HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+$ git apply patch in empty repository && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.011s
+ok  	forumdesk/internal/bot	0.014s
+ok  	forumdesk/internal/config	0.011s
+ok  	forumdesk/internal/store	0.016s
+ok  	forumdesk/internal/telegram	0.013s
+EXIT_STATUS=0
+
+$ scripts/rollback.sh (executed against temporary project copy)
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+
+$ docker build -t forumdesk:verify .
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 540B 0.0s done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/golang:1.23-alpine
+#2 ...
+
+#3 [internal] load metadata for docker.io/library/alpine:3.21
+#3 DONE 3.9s
+
+#2 [internal] load metadata for docker.io/library/golang:1.23-alpine
+#2 DONE 3.9s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/5] FROM docker.io/library/alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
+#5 resolve docker.io/library/alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 33.19kB done
+#6 DONE 0.0s
+
+#7 [build 1/6] FROM docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f
+#7 resolve docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f 0.0s done
+#7 DONE 0.1s
+
+#8 [stage-1 2/5] RUN addgroup -S forumdesk && adduser -S -G forumdesk forumdesk
+#8 DONE 0.4s
+
+#9 [stage-1 3/5] WORKDIR /app
+#9 DONE 0.0s
+
+#7 [build 1/6] FROM docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f
+#7 sha256:13eebdc497b76e3a8d650f3508406dd372001df44915970a80418896bf835077 126B / 126B 0.4s done
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 0B / 70.70MB 0.5s
+#7 sha256:6e174226ea690ced550e5641249a412cdbefd2d09871f3e64ab52137a54ba606 0B / 4.13MB 0.3s
+#7 sha256:7d1a427e917c48b164eae3ec3692b4741f5de528261925d2e5efc62a43e5bfc4 0B / 284.71kB 0.3s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 4.19MB / 70.70MB 4.4s
+#7 sha256:7d1a427e917c48b164eae3ec3692b4741f5de528261925d2e5efc62a43e5bfc4 284.71kB / 284.71kB 4.2s done
+#7 sha256:6e174226ea690ced550e5641249a412cdbefd2d09871f3e64ab52137a54ba606 1.05MB / 4.13MB 4.4s
+#7 sha256:6e174226ea690ced550e5641249a412cdbefd2d09871f3e64ab52137a54ba606 2.10MB / 4.13MB 6.3s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 8.39MB / 70.70MB 7.4s
+#7 sha256:6e174226ea690ced550e5641249a412cdbefd2d09871f3e64ab52137a54ba606 3.15MB / 4.13MB 8.6s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 12.58MB / 70.70MB 10.5s
+#7 sha256:6e174226ea690ced550e5641249a412cdbefd2d09871f3e64ab52137a54ba606 4.13MB / 4.13MB 10.9s done
+#7 extracting sha256:6e174226ea690ced550e5641249a412cdbefd2d09871f3e64ab52137a54ba606
+#7 extracting sha256:6e174226ea690ced550e5641249a412cdbefd2d09871f3e64ab52137a54ba606 0.1s done
+#7 extracting sha256:7d1a427e917c48b164eae3ec3692b4741f5de528261925d2e5efc62a43e5bfc4 0.0s done
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 16.78MB / 70.70MB 12.9s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 20.97MB / 70.70MB 15.2s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 25.17MB / 70.70MB 17.4s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 29.36MB / 70.70MB 19.8s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 33.55MB / 70.70MB 22.2s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 37.75MB / 70.70MB 24.9s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 41.94MB / 70.70MB 27.6s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 46.14MB / 70.70MB 29.4s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 50.33MB / 70.70MB 31.8s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 54.53MB / 70.70MB 34.2s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 58.72MB / 70.70MB 36.8s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 62.91MB / 70.70MB 39.3s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 67.11MB / 70.70MB 41.7s
+#7 sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 70.70MB / 70.70MB 43.8s done
+#7 extracting sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb
+#7 extracting sha256:382d65ac76ebcbc7ba7ee0d232ae7afbec48e2b3b673983ac8ced522dabe3abb 1.9s done
+#7 DONE 45.8s
+
+#7 [build 1/6] FROM docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f
+#7 extracting sha256:13eebdc497b76e3a8d650f3508406dd372001df44915970a80418896bf835077 done
+#7 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#7 DONE 45.8s
+
+#10 [build 2/6] WORKDIR /src
+#10 DONE 0.5s
+
+#11 [build 3/6] COPY go.mod ./
+#11 DONE 0.0s
+
+#12 [build 4/6] COPY cmd ./cmd
+#12 DONE 0.0s
+
+#13 [build 5/6] COPY internal ./internal
+#13 DONE 0.0s
+
+#14 [build 6/6] RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/forumdesk ./cmd/forumdesk
+#14 DONE 5.6s
+
+#15 [stage-1 4/5] COPY --from=build /out/forumdesk /usr/local/bin/forumdesk
+#15 DONE 0.0s
+
+#16 [stage-1 5/5] RUN mkdir -p /app/data && chown -R forumdesk:forumdesk /app
+#16 DONE 0.1s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 0.2s done
+#17 exporting manifest sha256:7af520b0dbc5ff8a16d1896d503c5e65426fb5fdfb4c74ee5023469a4f7d1fe8 done
+#17 exporting config sha256:e33d9e5afddb01bebc7a2d28eb010d5efacbc060522555d3aba4415ecd946f09 done
+#17 exporting attestation manifest sha256:0f0a0a0306bffd279cc3f9307b372528302b0d70871a9c69d96caa32d9800857 0.0s done
+#17 exporting manifest list sha256:56e93c228f15c701944d527ad7d6c2f513853f93c7b4d8d1ad0ca43fc63e475d done
+#17 naming to docker.io/library/forumdesk:verify done
+#17 unpacking to docker.io/library/forumdesk:verify 0.0s done
+#17 DONE 0.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/ymaaoggke0mrz3mjlwcep9wee
+EXIT_STATUS=0
+
+$ git rev-parse --verify HEAD (baseline)
+fatal: Needed a single revision
+EXIT_STATUS=128 (expected: unborn repository)
+
+$ git ls-files (baseline)
+OUTPUT=(empty)
+EXIT_STATUS=0
+
+$ go test -race ./... && go vet ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	(cached)
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	(cached)
+ok  	forumdesk/internal/telegram	(cached)
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:e36cc00247a564309c46f10ceb67635971969e6e68dcf5935946b00a48c9ce74
+EXIT_STATUS=0
+
+$ docker run --rm forumdesk:verify (configuration guard)
+2026/09/06 09:47:42 BOT_TOKEN is required
+EXIT_STATUS=1 (expected: 1 without BOT_TOKEN)
+
+$ final git apply artifacts/forumdesk.patch in empty repository && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.012s
+ok  	forumdesk/internal/bot	0.013s
+ok  	forumdesk/internal/config	0.010s
+ok  	forumdesk/internal/store	0.017s
+ok  	forumdesk/internal/telegram	0.014s
+EXIT_STATUS=0
+
+$ final scripts/rollback.sh (temporary project copy)
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+
+$ shasum -a 256 artifacts/forumdesk.patch artifacts/verification.txt dist/forumdesk
+414cba0134cb240228705c4df6f614013710573b4cd674c0aebf8e7b278b750c  artifacts/forumdesk.patch
+f3dd2fcbc3d14ebf153452a4140cc011ef4687e5881a134e0e42539e49362f63  artifacts/verification.txt
+671bd2125731d1ab14532c7fa132def8ec29b8631df9b017daac15c7009250f5  dist/forumdesk
+EXIT_STATUS=0
+
+=== EDIT/DELETE SYNC VERIFICATION ===
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	1.020s
+ok  	forumdesk/internal/bot	1.019s
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	1.022s
+ok  	forumdesk/internal/telegram	1.028s
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-cover-edit.out && go tool cover -func=/tmp/forumdesk-cover-edit.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	0.013s	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	0.013s	coverage: 84.3% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	0.018s	coverage: 78.0% of statements
+ok  	forumdesk/internal/telegram	0.021s	coverage: 91.8% of statements
+total:						(statements)		81.6%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:905c7e1515d354149cb27372c44c75b5fd1491a50c4f6bab2902fe2f9ac8cd82
+EXIT_STATUS=0
+
+$ python3 -c HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+$ updated patch applied in empty repository && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.022s
+ok  	forumdesk/internal/bot	0.019s
+ok  	forumdesk/internal/config	0.015s
+ok  	forumdesk/internal/store	0.027s
+ok  	forumdesk/internal/telegram	0.017s
+EXIT_STATUS=0
+
+$ updated rollback executed against temporary copy
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+
+=== DIRECTIONAL EDIT + ROBUST DELETE VERIFICATION ===
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	1.018s
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	(cached)
+ok  	forumdesk/internal/telegram	1.034s
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-final-cover.out && go tool cover -func=/tmp/forumdesk-final-cover.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	(cached)	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	0.013s	coverage: 82.1% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	(cached)	coverage: 78.0% of statements
+ok  	forumdesk/internal/telegram	0.017s	coverage: 92.5% of statements
+total:						(statements)		81.2%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:feef8d4157c1891f2dcd5ee8642be98d1d3fd269453402842205b9912982b5ec
+EXIT_STATUS=0
+
+$ python3 -c HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+$ final directional-edit patch apply && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.014s
+ok  	forumdesk/internal/bot	0.010s
+ok  	forumdesk/internal/config	0.010s
+ok  	forumdesk/internal/store	0.018s
+ok  	forumdesk/internal/telegram	0.016s
+EXIT_STATUS=0
+
+$ final rollback against temporary project copy
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+
+=== REPLY MAPPING + CONTENT PROTECTION VERIFICATION ===
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	1.025s
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	1.025s
+ok  	forumdesk/internal/telegram	1.035s
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-protect-cover.out && go tool cover -func=/tmp/forumdesk-protect-cover.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	(cached)	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	0.013s	coverage: 82.2% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	0.016s	coverage: 77.1% of statements
+ok  	forumdesk/internal/telegram	0.017s	coverage: 93.0% of statements
+total:						(statements)			81.2%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:70873ede434128a6f139a2f816315ae1c23c86ba416ad500ba6c0fb2fda24c72
+EXIT_STATUS=0
+
+$ python3 -c HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+$ final reply/protection patch apply && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.011s
+ok  	forumdesk/internal/bot	0.010s
+ok  	forumdesk/internal/config	0.008s
+ok  	forumdesk/internal/store	0.014s
+ok  	forumdesk/internal/telegram	0.016s
+EXIT_STATUS=0
+
+$ final rollback on temporary project copy
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+
+=== PROTECTED CONFIRMATION + COMMAND MENU VERIFICATION ===
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	1.022s
+ok  	forumdesk/internal/bot	1.020s
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	(cached)
+ok  	forumdesk/internal/telegram	1.031s
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-menu-cover.out && go tool cover -func=/tmp/forumdesk-menu-cover.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	0.010s	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	0.011s	coverage: 82.5% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	(cached)	coverage: 77.1% of statements
+ok  	forumdesk/internal/telegram	0.017s	coverage: 93.4% of statements
+total:						(statements)			81.2%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:41759049df271caecd64a4bee778984e9978dd5cd605f227e5b526807489e841
+EXIT_STATUS=0
+
+$ python3 -c HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+$ final command-menu patch apply + go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.010s
+ok  	forumdesk/internal/bot	0.009s
+ok  	forumdesk/internal/config	0.007s
+ok  	forumdesk/internal/store	0.016s
+ok  	forumdesk/internal/telegram	0.020s
+EXIT_STATUS=0
+
+$ final rollback in temporary copy
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+
+=== SILENT PROTECTION VERIFICATION ===
+$ go test -race ./... && go vet ./... && docker build
+EXIT_STATUS=0
+$ patch apply + go test
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.011s
+ok  	forumdesk/internal/bot	0.010s
+ok  	forumdesk/internal/config	0.009s
+ok  	forumdesk/internal/store	0.017s
+ok  	forumdesk/internal/telegram	0.018s
+EXIT_STATUS=0
+$ rollback temporary copy
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0

@@ -1,0 +1,6 @@
+.git
+.env
+artifacts
+data
+dist
+coverage.out

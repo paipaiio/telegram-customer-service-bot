@@ -1,0 +1,2024 @@
+diff --git a/.dockerignore b/.dockerignore
+new file mode 100644
+index 0000000..203fb1c
+--- /dev/null
++++ b/.dockerignore
+@@ -0,0 +1,6 @@
++.git
++.env
++artifacts
++data
++dist
++coverage.out
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..ccd6321
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,3 @@
++BOT_TOKEN=123456789:replace_with_botfather_token
++SUPPORT_GROUP_ID=-1001234567890
++DATA_FILE=./data/forumdesk.json
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..e7d1f07
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,5 @@
++.env
++data/
++dist/
++*.log
++.DS_Store
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100644
+index 0000000..cce295a
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,16 @@
++FROM golang:1.23-alpine AS build
++WORKDIR /src
++COPY go.mod ./
++COPY cmd ./cmd
++COPY internal ./internal
++RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/forumdesk ./cmd/forumdesk
++
++FROM alpine:3.21
++RUN addgroup -S forumdesk && adduser -S -G forumdesk forumdesk
++WORKDIR /app
++COPY --from=build /out/forumdesk /usr/local/bin/forumdesk
++RUN mkdir -p /app/data && chown -R forumdesk:forumdesk /app
++USER forumdesk
++ENV DATA_FILE=/app/data/forumdesk.json
++VOLUME ["/app/data"]
++ENTRYPOINT ["forumdesk"]
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..3d45d08
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,18 @@
++.PHONY: test coverage build run docker-up
++
++test:
++	go test ./...
++
++coverage:
++	go test ./... -coverprofile=coverage.out
++	go tool cover -func=coverage.out
++
++build:
++	mkdir -p dist
++	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
++
++run:
++	go run ./cmd/forumdesk
++
++docker-up:
++	docker compose up -d --build
+diff --git a/README.html b/README.html
+new file mode 100644
+index 0000000..a05609b
+--- /dev/null
++++ b/README.html
+@@ -0,0 +1,99 @@
++<!doctype html>
++<html lang="zh-CN">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width,initial-scale=1">
++  <title>ForumDesk · Telegram Topic 私聊中转</title>
++  <style>
++    :root{--bg:#09111f;--panel:#111c2e;--line:#263650;--text:#eaf1ff;--muted:#99aac4;--brand:#59a9ff;--ok:#4bd29b;--warn:#ffcc70}
++    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% 0,#15335a 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
++    .shell{display:grid;grid-template-columns:250px minmax(0,900px);gap:36px;max-width:1220px;margin:auto;padding:44px 24px 80px}
++    nav{position:sticky;top:24px;align-self:start;padding:22px;background:#0d1829d9;border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(14px)}
++    nav b{display:block;font-size:20px;margin-bottom:14px} nav a{display:block;color:var(--muted);text-decoration:none;padding:7px 0} nav a:hover{color:var(--brand)}
++    main{min-width:0}.hero{padding:34px;border:1px solid #31547e;border-radius:24px;background:linear-gradient(145deg,#162947dd,#0e1b2ddd)}
++    .tag{display:inline-flex;padding:4px 10px;border:1px solid #3975b8;border-radius:999px;color:#9fd0ff;font-size:12px}.hero h1{font-size:42px;line-height:1.1;margin:18px 0 14px}.hero p{color:var(--muted);font-size:17px;max-width:700px}
++    .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.chip{padding:7px 12px;border-radius:10px;background:#142942;color:#cce5ff}
++    section{scroll-margin-top:24px;margin-top:38px}h2{font-size:25px;margin-bottom:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
++    .flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:10px;text-align:center}.flow div{padding:18px 10px;border-radius:13px;background:#15253c;border:1px solid var(--line)}.arrow{color:var(--brand);font-size:22px}
++    pre{position:relative;margin:0;overflow:auto;background:#07101d;border:1px solid #20314a;border-radius:12px;padding:18px;color:#d8e9ff;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}.code-wrap{position:relative}.copy{position:absolute;right:10px;top:10px;z-index:2;border:1px solid #3a5477;background:#14243a;color:#dcecff;border-radius:8px;padding:6px 9px;cursor:pointer}.copy:hover{background:#1c385a}
++    code{color:#a8d4ff}.ok{color:var(--ok)}.warn{color:var(--warn)}ol{padding-left:20px}.note{border-left:3px solid var(--brand);padding:10px 14px;background:#10243c;color:#bed6ef;border-radius:0 10px 10px 0}
++    footer{margin-top:48px;color:var(--muted);font-size:13px}@media(max-width:760px){.shell{display:block;padding:20px 14px 60px}nav{position:static;margin-bottom:22px}.hero h1{font-size:34px}.grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
++  </style>
++</head>
++<body>
++<div class="shell">
++  <nav>
++    <b>ForumDesk</b>
++    <a href="#overview">项目概览</a><a href="#flow">工作流程</a><a href="#setup">首次配置</a><a href="#message-actions">编辑与删除</a><a href="#privacy">引用与内容保护</a><a href="#commands">管理员命令</a><a href="#run">启动方式</a><a href="#structure">项目结构</a><a href="#status">当前边界</a>
++  </nav>
++  <main>
++    <header class="hero" id="overview">
++      <span class="tag">基础版本 · Go</span>
++      <h1>把每位私聊用户<br>放进独立 Topic</h1>
++      <p>用户私聊 Bot 后，ForumDesk 自动在私有超级群创建专属 Topic。用户消息进入对应 Topic，管理员在 Topic 里的回复再由 Bot 发回用户。</p>
++      <div class="chips"><span class="chip">单用户单 Topic</span><span class="chip">双向引用</span><span class="chip">内容保护</span><span class="chip">双向编辑</span><span class="chip">双端删除</span></div>
++    </header>
++
++    <section id="flow"><h2>工作流程</h2><div class="card flow"><div>Telegram 用户</div><span class="arrow">→</span><div>ForumDesk Bot</div><span class="arrow">→</span><div>客服群 Topic</div></div>
++      <div class="grid"><div class="card"><b class="ok">用户 → 客服</b><p>首次消息创建 Topic 和用户资料卡；之后所有消息复用同一 Topic。</p></div><div class="card"><b class="ok">客服 → 用户</b><p>管理员直接在 Topic 发消息，Bot 根据 Topic 映射复制给对应用户。</p></div></div>
++    </section>
++
++    <section id="setup"><h2>首次配置</h2>
++      <ol><li>通过 BotFather 创建 Bot 并取得 Token。</li><li>创建私有超级群，开启“话题 / Topics”。</li><li>把 Bot 设为管理员，并授予管理话题、发送消息和删除消息权限。</li><li>复制配置文件并填入 Token 与群 ID。</li></ol>
++      <div class="code-wrap"><button class="copy" data-copy="env">复制</button><pre id="env">cp .env.example .env
++
++# 编辑 .env
++BOT_TOKEN=123456789:YOUR_TOKEN
++SUPPORT_GROUP_ID=-1001234567890
++DATA_FILE=./data/forumdesk.json</pre></div>
++      <p class="note">Topic 没有独立头像。基础版会把用户头像作为 Topic 的第一张资料卡图片，视觉上实现接近的效果。</p>
++    </section>
++
++    <section id="message-actions"><h2>编辑与删除</h2><div class="grid">
++      <div class="card"><b class="ok">按方向同步编辑</b><p>客服编辑 Topic 消息时，Bot 直接修改用户看到的消息；用户编辑时，Topic 会引用原消息并追加“用户修改为”的新内容。</p></div>
++      <div class="card"><b class="ok">删除双方消息</b><p>回复需要删除的消息并发送 <code>/delete</code> 或 <code>/del</code>，Bot 会删除两端消息及删除命令。</p></div>
++    </div><p class="note">普通 Bot API 不会推送常规消息的删除事件，所以直接点 Telegram 的“删除”只影响当前一端。请使用回复命令触发双端删除；Telegram 的常规删除时限和管理员权限规则仍然适用。</p></section>
++
++    <section id="privacy"><h2>引用与内容保护</h2><div class="grid">
++      <div class="card"><b class="ok">引用自动映射</b><p>客服在 Topic 引用历史消息时，用户端会引用对应的消息副本；用户的引用也会映射回 Topic。</p></div>
++      <div class="card"><b class="ok">禁止截图、转发与保存</b><p>在当前用户 Topic 发送 <code>/protect on</code>，之后 Bot 发出的消息都会附带 Telegram 内容保护标记；使用 <code>/protect off</code> 关闭。</p></div>
++    </div><div class="code-wrap"><button class="copy" data-copy="protect">复制</button><pre id="protect">/protect on
++/protect off
++/protect</pre></div><p class="note">Bot 私聊采用逐条消息保护，开关状态和提示只显示在管理员 Topic；用户端不接收保护状态通知。用户自己发出的原始消息和已有消息维持原状态。</p></section>
++
++    <section id="commands"><h2>管理员命令菜单</h2><div class="card"><p>程序启动时自动调用 Telegram <code>setMyCommands</code>，并只给客服群管理员注册命令。管理员在 Topic 输入 <code>/</code> 后会看到：</p><ul><li><code>/protect</code> — 查看或设置内容保护</li><li><code>/delete</code> — 回复消息后双端删除</li><li><code>/help</code> — 显示完整说明</li></ul></div></section>
++
++    <section id="run"><h2>启动方式</h2>
++      <div class="grid"><div class="card"><b>本机运行</b><p>适合开发调试。</p><div class="code-wrap"><button class="copy" data-copy="local">复制</button><pre id="local">set -a
++source .env
++set +a
++go run ./cmd/forumdesk</pre></div></div>
++      <div class="card"><b>Docker Compose</b><p>适合常驻部署。</p><div class="code-wrap"><button class="copy" data-copy="docker">复制</button><pre id="docker">docker compose up -d --build
++docker compose logs -f</pre></div></div></div>
++      <div class="card"><b>质量检查</b><div class="code-wrap"><button class="copy" data-copy="quality">复制</button><pre id="quality">go test ./...
++go vet ./...
++make coverage</pre></div></div>
++    </section>
++
++    <section id="structure"><h2>项目结构</h2><div class="code-wrap"><button class="copy" data-copy="tree">复制</button><pre id="tree">cmd/forumdesk/       程序入口
++internal/app/        长轮询运行器
++internal/bot/        Topic 双向路由
++internal/config/     环境变量配置
++internal/store/      JSON 原子持久化
++internal/telegram/   Telegram Bot API 客户端
++data/                运行数据（自动创建）</pre></div></section>
++
++    <section id="status"><h2>当前基础能力与边界</h2><div class="grid">
++      <div class="card"><b class="ok">已经具备</b><ul><li>自动创建和复用 Topic</li><li>文本、图片、语音、视频、文件等消息复制</li><li>客服与用户双向引用映射</li><li>按 Topic 开关禁止转发/保存</li><li>定向编辑、双端删除和失败提示</li></ul></div>
++      <div class="card"><b class="warn">后续增强</b><ul><li>封禁、关闭会话和客服认领按钮</li><li>相册批量消息保持分组</li><li>PostgreSQL 多实例部署</li><li>监控、速率限制和管理后台</li></ul></div>
++    </div></section>
++    <footer>ForumDesk 基础版 · 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。</footer>
++  </main>
++</div>
++<script>
++  document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{
++    const text=document.getElementById(button.dataset.copy).innerText;
++    await navigator.clipboard.writeText(text);const old=button.textContent;button.textContent='已复制';setTimeout(()=>button.textContent=old,1200);
++  }));
++</script>
++</body></html>
+diff --git a/cmd/forumdesk/main.go b/cmd/forumdesk/main.go
+new file mode 100644
+index 0000000..fd644c3
+--- /dev/null
++++ b/cmd/forumdesk/main.go
+@@ -0,0 +1,37 @@
++package main
++
++import (
++	"context"
++	"log"
++	"os"
++	"os/signal"
++	"syscall"
++
++	"forumdesk/internal/app"
++	"forumdesk/internal/bot"
++	"forumdesk/internal/config"
++	"forumdesk/internal/store"
++	"forumdesk/internal/telegram"
++)
++
++func main() {
++	cfg, err := config.Load(os.Getenv)
++	if err != nil {
++		log.Fatal(err)
++	}
++	s, err := store.OpenFile(cfg.DataFile)
++	if err != nil {
++		log.Fatal(err)
++	}
++	api := telegram.NewClient(cfg.BotToken)
++	handler := bot.NewHandler(cfg.SupportGroupID, s, api)
++	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
++	defer stop()
++	if err := api.SetAdminCommands(ctx, cfg.SupportGroupID); err != nil {
++		log.Printf("register admin commands: %v", err)
++	}
++
++	log.Printf("ForumDesk started; support group=%d data=%s", cfg.SupportGroupID, cfg.DataFile)
++	app.Run(ctx, log.Default(), api, handler)
++	log.Print("ForumDesk stopped")
++}
+diff --git a/compose.yaml b/compose.yaml
+new file mode 100644
+index 0000000..d94fff0
+--- /dev/null
++++ b/compose.yaml
+@@ -0,0 +1,10 @@
++services:
++  forumdesk:
++    build: .
++    restart: unless-stopped
++    env_file: .env
++    volumes:
++      - forumdesk-data:/app/data
++
++volumes:
++  forumdesk-data:
+diff --git a/go.mod b/go.mod
+new file mode 100644
+index 0000000..3911c06
+--- /dev/null
++++ b/go.mod
+@@ -0,0 +1,3 @@
++module forumdesk
++
++go 1.23.0
+diff --git a/internal/app/run.go b/internal/app/run.go
+new file mode 100644
+index 0000000..2a6b85f
+--- /dev/null
++++ b/internal/app/run.go
+@@ -0,0 +1,46 @@
++package app
++
++import (
++	"context"
++	"log"
++	"time"
++
++	"forumdesk/internal/telegram"
++)
++
++type Poller interface {
++	GetUpdates(context.Context, int) ([]telegram.Update, error)
++}
++
++type UpdateHandler interface {
++	Handle(context.Context, telegram.Update) error
++}
++
++var retryDelay = 2 * time.Second
++
++func Run(ctx context.Context, logger *log.Logger, poller Poller, handler UpdateHandler) {
++	offset := 0
++	for ctx.Err() == nil {
++		updates, err := poller.GetUpdates(ctx, offset)
++		if err != nil {
++			if ctx.Err() != nil {
++				return
++			}
++			logger.Printf("get updates: %v", err)
++			select {
++			case <-ctx.Done():
++				return
++			case <-time.After(retryDelay):
++			}
++			continue
++		}
++		for _, update := range updates {
++			if update.UpdateID >= offset {
++				offset = update.UpdateID + 1
++			}
++			if err := handler.Handle(ctx, update); err != nil {
++				logger.Printf("update %d: %v", update.UpdateID, err)
++			}
++		}
++	}
++}
+diff --git a/internal/app/run_test.go b/internal/app/run_test.go
+new file mode 100644
+index 0000000..1be94fc
+--- /dev/null
++++ b/internal/app/run_test.go
+@@ -0,0 +1,107 @@
++package app
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"log"
++	"strings"
++	"testing"
++
++	"forumdesk/internal/telegram"
++)
++
++type fakePoller struct {
++	calls   int
++	offsets []int
++	updates []telegram.Update
++	err     error
++	cancel  context.CancelFunc
++}
++
++func (f *fakePoller) GetUpdates(_ context.Context, offset int) ([]telegram.Update, error) {
++	f.calls++
++	f.offsets = append(f.offsets, offset)
++	if f.err != nil {
++		err := f.err
++		f.err = nil
++		f.cancel()
++		return nil, err
++	}
++	if f.calls == 1 {
++		return f.updates, nil
++	}
++	f.cancel()
++	return nil, context.Canceled
++}
++
++type fakeHandler struct {
++	ids []int
++	err error
++}
++
++type retryPoller struct {
++	calls  int
++	cancel context.CancelFunc
++}
++
++func (p *retryPoller) GetUpdates(_ context.Context, _ int) ([]telegram.Update, error) {
++	p.calls++
++	if p.calls == 1 {
++		return nil, errors.New("temporary network error")
++	}
++	p.cancel()
++	return nil, context.Canceled
++}
++
++func (f *fakeHandler) Handle(_ context.Context, u telegram.Update) error {
++	f.ids = append(f.ids, u.UpdateID)
++	return f.err
++}
++
++func TestRunProcessesBatchAndAdvancesOffset(t *testing.T) {
++	ctx, cancel := context.WithCancel(context.Background())
++	p := &fakePoller{updates: []telegram.Update{{UpdateID: 7}, {UpdateID: 8}}, cancel: cancel}
++	h := &fakeHandler{}
++	Run(ctx, log.New(&bytes.Buffer{}, "", 0), p, h)
++	if len(h.ids) != 2 || h.ids[0] != 7 || h.ids[1] != 8 {
++		t.Fatalf("handled=%v", h.ids)
++	}
++	if len(p.offsets) != 2 || p.offsets[1] != 9 {
++		t.Fatalf("offsets=%v", p.offsets)
++	}
++}
++
++func TestRunLogsHandlerError(t *testing.T) {
++	ctx, cancel := context.WithCancel(context.Background())
++	p := &fakePoller{updates: []telegram.Update{{UpdateID: 3}}, cancel: cancel}
++	h := &fakeHandler{err: errors.New("copy failed")}
++	var output bytes.Buffer
++	Run(ctx, log.New(&output, "", 0), p, h)
++	if !strings.Contains(output.String(), "update 3: copy failed") {
++		t.Fatalf("log=%q", output.String())
++	}
++}
++
++func TestRunStopsOnCanceledPollingError(t *testing.T) {
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++	p := &fakePoller{err: errors.New("network"), cancel: cancel}
++	Run(ctx, log.New(&bytes.Buffer{}, "", 0), p, &fakeHandler{})
++	if p.calls != 0 {
++		t.Fatalf("calls=%d", p.calls)
++	}
++}
++
++func TestRunRetriesAndLogsTemporaryPollingError(t *testing.T) {
++	oldDelay := retryDelay
++	retryDelay = 0
++	t.Cleanup(func() { retryDelay = oldDelay })
++	ctx, cancel := context.WithCancel(context.Background())
++	p := &retryPoller{cancel: cancel}
++	var output bytes.Buffer
++	Run(ctx, log.New(&output, "", 0), p, &fakeHandler{})
++	if p.calls != 2 || !strings.Contains(output.String(), "temporary network error") {
++		t.Fatalf("calls=%d log=%q", p.calls, output.String())
++	}
++}
+diff --git a/internal/bot/handler.go b/internal/bot/handler.go
+new file mode 100644
+index 0000000..4118739
+--- /dev/null
++++ b/internal/bot/handler.go
+@@ -0,0 +1,346 @@
++package bot
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"strings"
++	"time"
++
++	"forumdesk/internal/telegram"
++)
++
++type Conversation struct {
++	UserID         int64     `json:"user_id"`
++	TopicID        int       `json:"topic_id"`
++	DisplayName    string    `json:"display_name"`
++	Username       string    `json:"username,omitempty"`
++	CreatedAt      time.Time `json:"created_at,omitempty"`
++	ProtectContent bool      `json:"protect_content,omitempty"`
++}
++
++type MessageLink struct {
++	UserID         int64     `json:"user_id"`
++	UserMessageID  int       `json:"user_message_id"`
++	TopicMessageID int       `json:"topic_message_id"`
++	CreatedAt      time.Time `json:"created_at"`
++}
++
++type Store interface {
++	ConversationByUser(context.Context, int64) (Conversation, bool, error)
++	ConversationByTopic(context.Context, int64) (Conversation, bool, error)
++	CreateConversation(context.Context, Conversation) error
++	SaveMessageLink(context.Context, MessageLink) error
++	MessageLinkByUser(context.Context, int64, int) (MessageLink, bool, error)
++	MessageLinkByTopic(context.Context, int) (MessageLink, bool, error)
++	DeleteMessageLink(context.Context, int64, int) error
++	SetConversationProtection(context.Context, int64, bool) (Conversation, error)
++}
++
++type Telegram interface {
++	CreateForumTopic(context.Context, int64, string) (int, error)
++	CopyMessage(context.Context, int64, int64, int, telegram.CopyOptions) (int, error)
++	SendMessage(context.Context, int64, string, int) (int, error)
++	SendPhotoByFileID(context.Context, int64, string, string, int) (int, error)
++	FirstProfilePhoto(context.Context, int64) (string, bool, error)
++	EditMessageText(context.Context, int64, int, string) error
++	EditMessageCaption(context.Context, int64, int, string) error
++	DeleteMessage(context.Context, int64, int) error
++	SendReplyMessage(context.Context, int64, string, int, int) (int, error)
++}
++
++type Handler struct {
++	supportGroupID int64
++	store          Store
++	telegram       Telegram
++}
++
++func NewHandler(supportGroupID int64, store Store, telegram Telegram) *Handler {
++	return &Handler{supportGroupID: supportGroupID, store: store, telegram: telegram}
++}
++
++func (h *Handler) Handle(ctx context.Context, update telegram.Update) error {
++	if update.EditedMessage != nil {
++		return h.editedMessage(ctx, update.EditedMessage)
++	}
++	m := update.Message
++	if m == nil || (m.From != nil && m.From.IsBot) {
++		return nil
++	}
++	if m.Chat.Type == "private" {
++		if isDeleteCommand(m.Text) {
++			return h.deletePair(ctx, m)
++		}
++		return h.fromUser(ctx, m)
++	}
++	if m.Chat.ID == h.supportGroupID && m.MessageThreadID != 0 {
++		if isHelpCommand(m.Text) {
++			_, err := h.telegram.SendMessage(ctx, h.supportGroupID,
++				"管理命令：\n/protect on — 开启后续消息保护\n/protect off — 关闭保护\n/protect — 查看状态\n/delete — 回复消息后双端删除",
++				m.MessageThreadID)
++			return err
++		}
++		if matched, action := protectCommand(m.Text); matched {
++			return h.setProtection(ctx, m, action)
++		}
++		if isDeleteCommand(m.Text) {
++			return h.deletePair(ctx, m)
++		}
++		return h.fromStaff(ctx, m)
++	}
++	return nil
++}
++
++func (h *Handler) setProtection(ctx context.Context, command *telegram.Message, action string) error {
++	c, found, err := h.store.ConversationByTopic(ctx, int64(command.MessageThreadID))
++	if err != nil {
++		return fmt.Errorf("find topic protection settings: %w", err)
++	}
++	if !found {
++		return fmt.Errorf("topic %d has no user mapping", command.MessageThreadID)
++	}
++	if action == "on" || action == "off" {
++		c, err = h.store.SetConversationProtection(ctx, c.UserID, action == "on")
++		if err != nil {
++			return fmt.Errorf("save content protection: %w", err)
++		}
++	}
++	status := "关闭"
++	if c.ProtectContent {
++		status = "开启"
++	}
++	_, err = h.telegram.SendMessage(ctx, h.supportGroupID,
++		fmt.Sprintf("🔒 禁止转发/保存：%s\n使用 /protect on 开启，/protect off 关闭\n设置只影响之后发送的消息。", status),
++		command.MessageThreadID)
++	return err
++}
++
++func (h *Handler) editedMessage(ctx context.Context, m *telegram.Message) error {
++	if m.From != nil && m.From.IsBot {
++		return nil
++	}
++	var link MessageLink
++	var found bool
++	var err error
++	if m.Chat.Type == "private" {
++		link, found, err = h.store.MessageLinkByUser(ctx, m.Chat.ID, m.MessageID)
++	} else if m.Chat.ID == h.supportGroupID && m.MessageThreadID != 0 {
++		link, found, err = h.store.MessageLinkByTopic(ctx, m.MessageID)
++	} else {
++		return nil
++	}
++	if err != nil {
++		return fmt.Errorf("find edited message %d mapping: %w", m.MessageID, err)
++	}
++	if !found {
++		return fmt.Errorf("edited message %d has no message mapping", m.MessageID)
++	}
++	if m.Chat.Type == "private" {
++		conversation, exists, conversationErr := h.store.ConversationByUser(ctx, m.Chat.ID)
++		if conversationErr != nil {
++			return fmt.Errorf("find edited message topic: %w", conversationErr)
++		}
++		if !exists {
++			return fmt.Errorf("edited message user %d has no topic mapping", m.Chat.ID)
++		}
++		content := m.Text
++		if content == "" {
++			content = m.Caption
++		}
++		if content == "" {
++			content = "（内容已清空）"
++		}
++		_, err = h.telegram.SendReplyMessage(ctx, h.supportGroupID, "✏️ 用户修改为：\n"+content, conversation.TopicID, link.TopicMessageID)
++		if err != nil {
++			return fmt.Errorf("send user edit for message %d: %w", m.MessageID, err)
++		}
++		return nil
++	}
++	destinationChatID, destinationMessageID := link.UserID, link.UserMessageID
++	if m.Text != "" {
++		if err := h.telegram.EditMessageText(ctx, destinationChatID, destinationMessageID, m.Text); err != nil {
++			return fmt.Errorf("sync text edit for message %d: %w", m.MessageID, err)
++		}
++		return nil
++	}
++	if err := h.telegram.EditMessageCaption(ctx, destinationChatID, destinationMessageID, m.Caption); err != nil {
++		return fmt.Errorf("sync caption edit for message %d: %w", m.MessageID, err)
++	}
++	return nil
++}
++
++func (h *Handler) deletePair(ctx context.Context, command *telegram.Message) error {
++	if command.ReplyToMessage == nil {
++		_, err := h.telegram.SendMessage(ctx, command.Chat.ID, "请回复要双端删除的消息，然后发送 /delete", command.MessageThreadID)
++		return err
++	}
++	var link MessageLink
++	var found bool
++	var err error
++	if command.Chat.Type == "private" {
++		link, found, err = h.store.MessageLinkByUser(ctx, command.Chat.ID, command.ReplyToMessage.MessageID)
++	} else {
++		link, found, err = h.store.MessageLinkByTopic(ctx, command.ReplyToMessage.MessageID)
++	}
++	if err != nil {
++		return fmt.Errorf("find message to delete: %w", err)
++	}
++	if !found {
++		return fmt.Errorf("message %d has no message mapping", command.ReplyToMessage.MessageID)
++	}
++	var failures []error
++	if err := h.telegram.DeleteMessage(ctx, link.UserID, link.UserMessageID); err != nil && !messageAlreadyDeleted(err) {
++		failures = append(failures, fmt.Errorf("delete user message %d: %w", link.UserMessageID, err))
++	}
++	if err := h.telegram.DeleteMessage(ctx, h.supportGroupID, link.TopicMessageID); err != nil && !messageAlreadyDeleted(err) {
++		failures = append(failures, fmt.Errorf("delete topic message %d: %w", link.TopicMessageID, err))
++	}
++	if err := h.telegram.DeleteMessage(ctx, command.Chat.ID, command.MessageID); err != nil && !messageAlreadyDeleted(err) {
++		failures = append(failures, fmt.Errorf("delete command message %d: %w", command.MessageID, err))
++	}
++	if len(failures) > 0 {
++		_, noticeErr := h.telegram.SendMessage(ctx, command.Chat.ID, "⚠️ 删除消息未完成，请确认 Bot 拥有“删除消息”管理员权限，并重试 /delete", command.MessageThreadID)
++		if noticeErr != nil {
++			failures = append(failures, noticeErr)
++		}
++		return errors.Join(failures...)
++	}
++	return h.store.DeleteMessageLink(ctx, link.UserID, link.UserMessageID)
++}
++
++func messageAlreadyDeleted(err error) bool {
++	return strings.Contains(strings.ToLower(err.Error()), "message to delete not found")
++}
++
++func isDeleteCommand(text string) bool {
++	fields := strings.Fields(text)
++	if len(fields) == 0 {
++		return false
++	}
++	command := strings.SplitN(strings.ToLower(fields[0]), "@", 2)[0]
++	return command == "/delete" || command == "/del"
++}
++
++func protectCommand(text string) (bool, string) {
++	fields := strings.Fields(strings.ToLower(text))
++	if len(fields) == 0 {
++		return false, ""
++	}
++	if strings.SplitN(fields[0], "@", 2)[0] != "/protect" {
++		return false, ""
++	}
++	if len(fields) == 1 {
++		return true, "status"
++	}
++	if fields[1] == "on" || fields[1] == "off" {
++		return true, fields[1]
++	}
++	return true, "status"
++}
++
++func isHelpCommand(text string) bool {
++	fields := strings.Fields(strings.ToLower(text))
++	return len(fields) > 0 && strings.SplitN(fields[0], "@", 2)[0] == "/help"
++}
++
++func (h *Handler) fromUser(ctx context.Context, m *telegram.Message) error {
++	userID := m.Chat.ID
++	conversation, found, err := h.store.ConversationByUser(ctx, userID)
++	if err != nil {
++		return fmt.Errorf("find conversation for user %d: %w", userID, err)
++	}
++	if !found {
++		conversation, err = h.startConversation(ctx, m)
++		if err != nil {
++			return err
++		}
++	}
++	options := telegram.CopyOptions{ThreadID: conversation.TopicID, ProtectContent: conversation.ProtectContent}
++	if m.ReplyToMessage != nil {
++		link, linkFound, linkErr := h.store.MessageLinkByUser(ctx, userID, m.ReplyToMessage.MessageID)
++		if linkErr != nil {
++			return fmt.Errorf("find replied user message: %w", linkErr)
++		}
++		if linkFound {
++			options.ReplyToMessageID = link.TopicMessageID
++		}
++	}
++	topicMessageID, err := h.telegram.CopyMessage(ctx, h.supportGroupID, userID, m.MessageID, options)
++	if err != nil {
++		return fmt.Errorf("copy user message %d to topic %d: %w", m.MessageID, conversation.TopicID, err)
++	}
++	return h.store.SaveMessageLink(ctx, MessageLink{UserID: userID, UserMessageID: m.MessageID, TopicMessageID: topicMessageID, CreatedAt: time.Now().UTC()})
++}
++
++func (h *Handler) startConversation(ctx context.Context, m *telegram.Message) (Conversation, error) {
++	displayName, username := displayName(m.From), ""
++	if m.From != nil {
++		username = m.From.Username
++	}
++	topicName := displayName
++	if username != "" {
++		topicName += " · @" + username
++	}
++	if len([]rune(topicName)) > 128 {
++		topicName = string([]rune(topicName)[:128])
++	}
++	topicID, err := h.telegram.CreateForumTopic(ctx, h.supportGroupID, topicName)
++	if err != nil {
++		return Conversation{}, fmt.Errorf("create topic for user %d: %w", m.Chat.ID, err)
++	}
++	c := Conversation{UserID: m.Chat.ID, TopicID: topicID, DisplayName: displayName, Username: username, CreatedAt: time.Now().UTC()}
++	if err := h.store.CreateConversation(ctx, c); err != nil {
++		return Conversation{}, fmt.Errorf("save topic %d mapping: %w", topicID, err)
++	}
++	card := fmt.Sprintf("👤 用户资料\n名称：%s\n用户名：%s\n用户 ID：%d\n\n管理命令：\n/protect on — 禁止后续消息转发/保存\n/protect off — 关闭保护\n回复消息发送 /delete — 双端删除", displayName, usernameLabel(username), m.Chat.ID)
++	if fileID, ok, photoErr := h.telegram.FirstProfilePhoto(ctx, m.Chat.ID); photoErr == nil && ok {
++		if _, photoErr = h.telegram.SendPhotoByFileID(ctx, h.supportGroupID, fileID, card, topicID); photoErr == nil {
++			return c, nil
++		}
++	}
++	_, _ = h.telegram.SendMessage(ctx, h.supportGroupID, card, topicID)
++	return c, nil
++}
++
++func (h *Handler) fromStaff(ctx context.Context, m *telegram.Message) error {
++	c, found, err := h.store.ConversationByTopic(ctx, int64(m.MessageThreadID))
++	if err != nil {
++		return fmt.Errorf("find topic %d: %w", m.MessageThreadID, err)
++	}
++	if !found {
++		return fmt.Errorf("topic %d has no user mapping", m.MessageThreadID)
++	}
++	options := telegram.CopyOptions{ProtectContent: c.ProtectContent}
++	if m.ReplyToMessage != nil {
++		link, linkFound, linkErr := h.store.MessageLinkByTopic(ctx, m.ReplyToMessage.MessageID)
++		if linkErr != nil {
++			return fmt.Errorf("find replied topic message: %w", linkErr)
++		}
++		if linkFound && link.UserID == c.UserID {
++			options.ReplyToMessageID = link.UserMessageID
++		}
++	}
++	userMessageID, err := h.telegram.CopyMessage(ctx, c.UserID, h.supportGroupID, m.MessageID, options)
++	if err != nil {
++		return fmt.Errorf("copy topic message %d to user %d: %w", m.MessageID, c.UserID, err)
++	}
++	return h.store.SaveMessageLink(ctx, MessageLink{UserID: c.UserID, UserMessageID: userMessageID, TopicMessageID: m.MessageID, CreatedAt: time.Now().UTC()})
++}
++
++func displayName(u *telegram.User) string {
++	if u == nil {
++		return "访客"
++	}
++	name := strings.TrimSpace(strings.TrimSpace(u.FirstName) + " " + strings.TrimSpace(u.LastName))
++	if name == "" {
++		return fmt.Sprintf("访客-%d", u.ID)
++	}
++	return name
++}
++
++func usernameLabel(username string) string {
++	if username == "" {
++		return "未设置"
++	}
++	return "@" + username
++}
+diff --git a/internal/bot/handler_test.go b/internal/bot/handler_test.go
+new file mode 100644
+index 0000000..d93902b
+--- /dev/null
++++ b/internal/bot/handler_test.go
+@@ -0,0 +1,436 @@
++package bot
++
++import (
++	"context"
++	"errors"
++	"strings"
++	"testing"
++
++	"forumdesk/internal/telegram"
++)
++
++type fakeStore struct {
++	byUser    map[int64]Conversation
++	byTopic   map[int64]Conversation
++	saved     []MessageLink
++	createErr error
++}
++
++func newFakeStore() *fakeStore {
++	return &fakeStore{byUser: map[int64]Conversation{}, byTopic: map[int64]Conversation{}}
++}
++
++func (s *fakeStore) ConversationByUser(_ context.Context, id int64) (Conversation, bool, error) {
++	c, ok := s.byUser[id]
++	return c, ok, nil
++}
++func (s *fakeStore) ConversationByTopic(_ context.Context, id int64) (Conversation, bool, error) {
++	c, ok := s.byTopic[id]
++	return c, ok, nil
++}
++func (s *fakeStore) CreateConversation(_ context.Context, c Conversation) error {
++	if s.createErr != nil {
++		return s.createErr
++	}
++	s.byUser[c.UserID], s.byTopic[int64(c.TopicID)] = c, c
++	return nil
++}
++func (s *fakeStore) SaveMessageLink(_ context.Context, l MessageLink) error {
++	s.saved = append(s.saved, l)
++	return nil
++}
++func (s *fakeStore) MessageLinkByUser(_ context.Context, userID int64, messageID int) (MessageLink, bool, error) {
++	for _, link := range s.saved {
++		if link.UserID == userID && link.UserMessageID == messageID {
++			return link, true, nil
++		}
++	}
++	return MessageLink{}, false, nil
++}
++func (s *fakeStore) MessageLinkByTopic(_ context.Context, messageID int) (MessageLink, bool, error) {
++	for _, link := range s.saved {
++		if link.TopicMessageID == messageID {
++			return link, true, nil
++		}
++	}
++	return MessageLink{}, false, nil
++}
++func (s *fakeStore) DeleteMessageLink(_ context.Context, userID int64, userMessageID int) error {
++	for i, link := range s.saved {
++		if link.UserID == userID && link.UserMessageID == userMessageID {
++			s.saved = append(s.saved[:i], s.saved[i+1:]...)
++			break
++		}
++	}
++	return nil
++}
++func (s *fakeStore) SetConversationProtection(_ context.Context, userID int64, enabled bool) (Conversation, error) {
++	c, ok := s.byUser[userID]
++	if !ok {
++		return Conversation{}, errors.New("conversation not found")
++	}
++	c.ProtectContent = enabled
++	s.byUser[userID], s.byTopic[int64(c.TopicID)] = c, c
++	return c, nil
++}
++
++type copyCall struct {
++	chatID, fromChatID int64
++	messageID          int
++	options            telegram.CopyOptions
++}
++type fakeTelegram struct {
++	topicID     int
++	copyID      int
++	copyCalls   []copyCall
++	texts       []string
++	photos      []string
++	profileFile string
++	edits       []editCall
++	deletes     []deleteCall
++	replies     []replyCall
++	deleteErr   map[deleteCall]error
++}
++type editCall struct {
++	kind      string
++	chatID    int64
++	messageID int
++	content   string
++}
++type deleteCall struct {
++	chatID    int64
++	messageID int
++}
++type replyCall struct {
++	chatID              int64
++	messageID, threadID int
++	text                string
++}
++
++func (f *fakeTelegram) CreateForumTopic(context.Context, int64, string) (int, error) {
++	return f.topicID, nil
++}
++func (f *fakeTelegram) CopyMessage(_ context.Context, chatID, fromChatID int64, messageID int, options telegram.CopyOptions) (int, error) {
++	f.copyCalls = append(f.copyCalls, copyCall{chatID, fromChatID, messageID, options})
++	return f.copyID, nil
++}
++func (f *fakeTelegram) SendMessage(_ context.Context, _ int64, text string, _ int) (int, error) {
++	f.texts = append(f.texts, text)
++	return 77, nil
++}
++func (f *fakeTelegram) SendPhotoByFileID(_ context.Context, _ int64, fileID, _ string, _ int) (int, error) {
++	f.photos = append(f.photos, fileID)
++	return 78, nil
++}
++func (f *fakeTelegram) FirstProfilePhoto(context.Context, int64) (string, bool, error) {
++	return f.profileFile, f.profileFile != "", nil
++}
++func (f *fakeTelegram) EditMessageText(_ context.Context, chatID int64, messageID int, text string) error {
++	f.edits = append(f.edits, editCall{"text", chatID, messageID, text})
++	return nil
++}
++func (f *fakeTelegram) EditMessageCaption(_ context.Context, chatID int64, messageID int, caption string) error {
++	f.edits = append(f.edits, editCall{"caption", chatID, messageID, caption})
++	return nil
++}
++func (f *fakeTelegram) DeleteMessage(_ context.Context, chatID int64, messageID int) error {
++	call := deleteCall{chatID, messageID}
++	f.deletes = append(f.deletes, call)
++	return f.deleteErr[call]
++}
++func (f *fakeTelegram) SendReplyMessage(_ context.Context, chatID int64, text string, threadID, messageID int) (int, error) {
++	f.replies = append(f.replies, replyCall{chatID, messageID, threadID, text})
++	return 79, nil
++}
++
++func TestPrivateMessageCreatesTopicAndCopiesMessage(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{topicID: 321, copyID: 654, profileFile: "avatar-file"}
++	h := NewHandler(-10099, store, api)
++	update := telegram.Update{UpdateID: 1, Message: &telegram.Message{
++		MessageID: 42, Chat: telegram.Chat{ID: 1001, Type: "private"},
++		From: &telegram.User{ID: 1001, FirstName: "Ada", Username: "ada"}, Text: "hello",
++	}}
++	if err := h.Handle(context.Background(), update); err != nil {
++		t.Fatal(err)
++	}
++	c := store.byUser[1001]
++	if c.TopicID != 321 || c.DisplayName != "Ada" {
++		t.Fatalf("conversation = %#v", c)
++	}
++	if len(api.copyCalls) != 1 || api.copyCalls[0] != (copyCall{-10099, 1001, 42, telegram.CopyOptions{ThreadID: 321}}) {
++		t.Fatalf("copy calls = %#v", api.copyCalls)
++	}
++	if len(api.photos) != 1 || len(api.texts) != 0 {
++		t.Fatalf("profile card not sent: photos=%v texts=%v", api.photos, api.texts)
++	}
++	if len(store.saved) != 1 || store.saved[0].UserMessageID != 42 || store.saved[0].TopicMessageID != 654 {
++		t.Fatalf("links = %#v", store.saved)
++	}
++}
++
++func TestNewConversationWithoutAvatarSendsTextCard(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{topicID: 321, copyID: 654}
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 42, Chat: telegram.Chat{ID: 1001, Type: "private"}, From: &telegram.User{ID: 1001, FirstName: "Ada"},
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.photos) != 0 || len(api.texts) != 1 {
++		t.Fatalf("photos=%v texts=%v", api.photos, api.texts)
++	}
++}
++
++func TestExistingPrivateConversationReusesTopic(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{topicID: 999, copyID: 10}
++	c := Conversation{UserID: 1001, TopicID: 12, DisplayName: "Ada"}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{MessageID: 8, Chat: telegram.Chat{ID: 1001, Type: "private"}, From: &telegram.User{ID: 1001}}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if api.copyCalls[0].options.ThreadID != 12 || len(api.texts) != 0 || len(api.photos) != 0 {
++		t.Fatalf("unexpected calls: %#v", api)
++	}
++}
++
++func TestTopicMessageCopiesBackToUser(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{copyID: 91}
++	c := Conversation{UserID: 1001, TopicID: 12, DisplayName: "Ada"}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "reply",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.copyCalls) != 1 || api.copyCalls[0] != (copyCall{1001, -10099, 50, telegram.CopyOptions{}}) {
++		t.Fatalf("calls = %#v", api.copyCalls)
++	}
++	if len(store.saved) != 1 || store.saved[0].UserMessageID != 91 || store.saved[0].TopicMessageID != 50 {
++		t.Fatalf("links = %#v", store.saved)
++	}
++}
++
++func TestIgnoresBotMessagesAndOtherChats(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	h := NewHandler(-10099, store, api)
++	updates := []telegram.Update{
++		{},
++		{Message: &telegram.Message{Chat: telegram.Chat{ID: -10022, Type: "supergroup"}}},
++		{Message: &telegram.Message{Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{IsBot: true}, MessageThreadID: 4}},
++	}
++	for _, u := range updates {
++		if err := h.Handle(context.Background(), u); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if len(api.copyCalls) != 0 {
++		t.Fatalf("copy calls = %#v", api.copyCalls)
++	}
++}
++
++func TestTopicMessageWithoutMappingReturnsUsefulError(t *testing.T) {
++	h := NewHandler(-10099, newFakeStore(), &fakeTelegram{})
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{MessageID: 1, MessageThreadID: 404, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}}})
++	if err == nil || !strings.Contains(err.Error(), "topic 404") {
++		t.Fatalf("error = %v", err)
++	}
++}
++
++func TestCreateConversationFailureStopsCopy(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{topicID: 12}
++	store.createErr = errors.New("db down")
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{MessageID: 1, Chat: telegram.Chat{ID: 1001, Type: "private"}, From: &telegram.User{ID: 1001}}})
++	if err == nil || len(api.copyCalls) != 0 {
++		t.Fatalf("err=%v calls=%v", err, api.copyCalls)
++	}
++}
++
++func TestEditedTopicTextUpdatesUserCopy(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 91, TopicMessageID: 50})
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{EditedMessage: &telegram.Message{
++		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "修改后",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := editCall{"text", 1001, 91, "修改后"}
++	if len(api.edits) != 1 || api.edits[0] != want {
++		t.Fatalf("edits=%#v want=%#v", api.edits, want)
++	}
++}
++
++func TestEditedPrivateCaptionRepliesToOriginalTopicMessage(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 42, TopicMessageID: 654})
++	store.byUser[1001] = Conversation{UserID: 1001, TopicID: 12}
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{EditedMessage: &telegram.Message{
++		MessageID: 42, Chat: telegram.Chat{ID: 1001, Type: "private"}, From: &telegram.User{ID: 1001}, Caption: "新说明",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.edits) != 0 || len(api.replies) != 1 {
++		t.Fatalf("edits=%#v replies=%#v", api.edits, api.replies)
++	}
++	reply := api.replies[0]
++	if reply.chatID != -10099 || reply.threadID != 12 || reply.messageID != 654 || !strings.Contains(reply.text, "新说明") {
++		t.Fatalf("reply=%#v", reply)
++	}
++}
++
++func TestDeleteCommandDeletesBothMessagesAndCommand(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 91, TopicMessageID: 50})
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/delete",
++		ReplyToMessage: &telegram.Message{MessageID: 50},
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := []deleteCall{{1001, 91}, {-10099, 50}, {-10099, 60}}
++	if len(api.deletes) != len(want) {
++		t.Fatalf("deletes=%#v", api.deletes)
++	}
++	for i := range want {
++		if api.deletes[i] != want[i] {
++			t.Fatalf("deletes=%#v want=%#v", api.deletes, want)
++		}
++	}
++	if len(store.saved) != 0 {
++		t.Fatalf("link was not removed: %#v", store.saved)
++	}
++}
++
++func TestDeleteCommandWithoutReplyShowsUsageAndIsNotForwarded(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/delete",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.copyCalls) != 0 || len(api.texts) != 1 {
++		t.Fatalf("copies=%v texts=%v", api.copyCalls, api.texts)
++	}
++}
++
++func TestPrivateDeleteCommandDeletesBothMessages(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 91, TopicMessageID: 50})
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 92, Chat: telegram.Chat{ID: 1001, Type: "private"}, From: &telegram.User{ID: 1001}, Text: "/del@forumdesk_bot",
++		ReplyToMessage: &telegram.Message{MessageID: 91},
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := []deleteCall{{1001, 91}, {-10099, 50}, {1001, 92}}
++	if len(api.deletes) != len(want) {
++		t.Fatalf("deletes=%#v", api.deletes)
++	}
++	for i := range want {
++		if api.deletes[i] != want[i] {
++			t.Fatalf("deletes=%#v want=%#v", api.deletes, want)
++		}
++	}
++}
++
++func TestDeleteContinuesAndReportsPartialFailure(t *testing.T) {
++	failed := deleteCall{-10099, 50}
++	store, api := newFakeStore(), &fakeTelegram{deleteErr: map[deleteCall]error{failed: errors.New("missing delete permission")}}
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 91, TopicMessageID: 50})
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/delete",
++		ReplyToMessage: &telegram.Message{MessageID: 50},
++	}})
++	if err == nil || len(api.deletes) != 3 || len(api.texts) != 1 {
++		t.Fatalf("err=%v deletes=%v texts=%v", err, api.deletes, api.texts)
++	}
++	if !strings.Contains(api.texts[0], "删除消息") {
++		t.Fatalf("notice=%q", api.texts[0])
++	}
++}
++
++func TestStaffReplyPreservesQuoteAndProtectionForUser(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{copyID: 91}
++	c := Conversation{UserID: 1001, TopicID: 12, ProtectContent: true}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 80, TopicMessageID: 40})
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "reply",
++		ReplyToMessage: &telegram.Message{MessageID: 40},
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := telegram.CopyOptions{ReplyToMessageID: 80, ProtectContent: true}
++	if len(api.copyCalls) != 1 || api.copyCalls[0].options != want {
++		t.Fatalf("calls=%#v want=%#v", api.copyCalls, want)
++	}
++}
++
++func TestUserReplyPreservesQuoteInTopic(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{copyID: 92}
++	c := Conversation{UserID: 1001, TopicID: 12, ProtectContent: true}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 80, TopicMessageID: 40})
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 81, Chat: telegram.Chat{ID: 1001, Type: "private"}, From: &telegram.User{ID: 1001}, Text: "reply",
++		ReplyToMessage: &telegram.Message{MessageID: 80},
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := telegram.CopyOptions{ThreadID: 12, ReplyToMessageID: 40, ProtectContent: true}
++	if len(api.copyCalls) != 1 || api.copyCalls[0].options != want {
++		t.Fatalf("calls=%#v want=%#v", api.copyCalls, want)
++	}
++}
++
++func TestProtectCommandEnablesContentProtectionForTopic(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/protect on",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !store.byUser[1001].ProtectContent || len(api.copyCalls) != 0 || len(api.texts) != 1 {
++		t.Fatalf("conversation=%#v copies=%v texts=%v", store.byUser[1001], api.copyCalls, api.texts)
++	}
++}
++
++func TestHelpCommandShowsAdminCommandsWithoutForwarding(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 61, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/help",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.copyCalls) != 0 || len(api.texts) != 1 || !strings.Contains(api.texts[0], "/protect") {
++		t.Fatalf("copies=%v texts=%v", api.copyCalls, api.texts)
++	}
++}
+diff --git a/internal/config/config.go b/internal/config/config.go
+new file mode 100644
+index 0000000..202f9a5
+--- /dev/null
++++ b/internal/config/config.go
+@@ -0,0 +1,36 @@
++package config
++
++import (
++	"fmt"
++	"strconv"
++	"strings"
++)
++
++type Config struct {
++	BotToken       string
++	SupportGroupID int64
++	DataFile       string
++}
++
++func Load(getenv func(string) string) (Config, error) {
++	cfg := Config{
++		BotToken: strings.TrimSpace(getenv("BOT_TOKEN")),
++		DataFile: strings.TrimSpace(getenv("DATA_FILE")),
++	}
++	if cfg.BotToken == "" {
++		return Config{}, fmt.Errorf("BOT_TOKEN is required")
++	}
++	group := strings.TrimSpace(getenv("SUPPORT_GROUP_ID"))
++	if group == "" {
++		return Config{}, fmt.Errorf("SUPPORT_GROUP_ID is required")
++	}
++	id, err := strconv.ParseInt(group, 10, 64)
++	if err != nil {
++		return Config{}, fmt.Errorf("parse SUPPORT_GROUP_ID: %w", err)
++	}
++	cfg.SupportGroupID = id
++	if cfg.DataFile == "" {
++		cfg.DataFile = "./data/forumdesk.json"
++	}
++	return cfg, nil
++}
+diff --git a/internal/config/config_test.go b/internal/config/config_test.go
+new file mode 100644
+index 0000000..4b991c7
+--- /dev/null
++++ b/internal/config/config_test.go
+@@ -0,0 +1,42 @@
++package config
++
++import "testing"
++
++func TestLoad(t *testing.T) {
++	env := map[string]string{
++		"BOT_TOKEN":        "token",
++		"SUPPORT_GROUP_ID": "-1001234567890",
++		"DATA_FILE":        "/data/forumdesk.json",
++	}
++	cfg, err := Load(func(key string) string { return env[key] })
++	if err != nil {
++		t.Fatalf("Load() error = %v", err)
++	}
++	if cfg.BotToken != "token" || cfg.SupportGroupID != -1001234567890 || cfg.DataFile != env["DATA_FILE"] {
++		t.Fatalf("unexpected config: %#v", cfg)
++	}
++}
++
++func TestLoadRejectsMissingAndInvalidValues(t *testing.T) {
++	tests := []map[string]string{
++		{"SUPPORT_GROUP_ID": "-1001"},
++		{"BOT_TOKEN": "token"},
++		{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "not-a-number"},
++	}
++	for _, env := range tests {
++		if _, err := Load(func(key string) string { return env[key] }); err == nil {
++			t.Fatalf("Load(%v) expected error", env)
++		}
++	}
++}
++
++func TestLoadUsesDefaultDataFile(t *testing.T) {
++	env := map[string]string{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "-1001"}
++	cfg, err := Load(func(key string) string { return env[key] })
++	if err != nil {
++		t.Fatal(err)
++	}
++	if cfg.DataFile != "./data/forumdesk.json" {
++		t.Fatalf("data file=%q", cfg.DataFile)
++	}
++}
+diff --git a/internal/store/file.go b/internal/store/file.go
+new file mode 100644
+index 0000000..80e688d
+--- /dev/null
++++ b/internal/store/file.go
+@@ -0,0 +1,175 @@
++package store
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strconv"
++	"sync"
++
++	"forumdesk/internal/bot"
++)
++
++type fileData struct {
++	Conversations map[string]bot.Conversation `json:"conversations"`
++	MessageLinks  []bot.MessageLink           `json:"message_links,omitempty"`
++}
++
++type FileStore struct {
++	mu   sync.RWMutex
++	path string
++	data fileData
++}
++
++func OpenFile(path string) (*FileStore, error) {
++	s := &FileStore{path: path, data: fileData{Conversations: map[string]bot.Conversation{}}}
++	raw, err := os.ReadFile(path)
++	if err != nil {
++		if os.IsNotExist(err) {
++			return s, nil
++		}
++		return nil, fmt.Errorf("read data file: %w", err)
++	}
++	if len(raw) == 0 {
++		return s, nil
++	}
++	if err := json.Unmarshal(raw, &s.data); err != nil {
++		return nil, fmt.Errorf("decode data file: %w", err)
++	}
++	if s.data.Conversations == nil {
++		s.data.Conversations = map[string]bot.Conversation{}
++	}
++	return s, nil
++}
++
++func (s *FileStore) ConversationByUser(_ context.Context, userID int64) (bot.Conversation, bool, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	c, ok := s.data.Conversations[strconv.FormatInt(userID, 10)]
++	return c, ok, nil
++}
++
++func (s *FileStore) ConversationByTopic(_ context.Context, topicID int64) (bot.Conversation, bool, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	for _, c := range s.data.Conversations {
++		if int64(c.TopicID) == topicID {
++			return c, true, nil
++		}
++	}
++	return bot.Conversation{}, false, nil
++}
++
++func (s *FileStore) CreateConversation(_ context.Context, c bot.Conversation) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	key := strconv.FormatInt(c.UserID, 10)
++	if _, exists := s.data.Conversations[key]; exists {
++		return fmt.Errorf("user %d already has a conversation", c.UserID)
++	}
++	for _, existing := range s.data.Conversations {
++		if existing.TopicID == c.TopicID {
++			return fmt.Errorf("topic %d already mapped", c.TopicID)
++		}
++	}
++	s.data.Conversations[key] = c
++	if err := s.persist(); err != nil {
++		delete(s.data.Conversations, key)
++		return err
++	}
++	return nil
++}
++
++func (s *FileStore) SaveMessageLink(_ context.Context, link bot.MessageLink) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.data.MessageLinks = append(s.data.MessageLinks, link)
++	if err := s.persist(); err != nil {
++		s.data.MessageLinks = s.data.MessageLinks[:len(s.data.MessageLinks)-1]
++		return err
++	}
++	return nil
++}
++
++func (s *FileStore) MessageLinkByUser(_ context.Context, userID int64, messageID int) (bot.MessageLink, bool, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	for i := len(s.data.MessageLinks) - 1; i >= 0; i-- {
++		link := s.data.MessageLinks[i]
++		if link.UserID == userID && link.UserMessageID == messageID {
++			return link, true, nil
++		}
++	}
++	return bot.MessageLink{}, false, nil
++}
++
++func (s *FileStore) MessageLinkByTopic(_ context.Context, messageID int) (bot.MessageLink, bool, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	for i := len(s.data.MessageLinks) - 1; i >= 0; i-- {
++		link := s.data.MessageLinks[i]
++		if link.TopicMessageID == messageID {
++			return link, true, nil
++		}
++	}
++	return bot.MessageLink{}, false, nil
++}
++
++func (s *FileStore) DeleteMessageLink(_ context.Context, userID int64, userMessageID int) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	for i, link := range s.data.MessageLinks {
++		if link.UserID != userID || link.UserMessageID != userMessageID {
++			continue
++		}
++		removed := link
++		s.data.MessageLinks = append(s.data.MessageLinks[:i], s.data.MessageLinks[i+1:]...)
++		if err := s.persist(); err != nil {
++			s.data.MessageLinks = append(s.data.MessageLinks, bot.MessageLink{})
++			copy(s.data.MessageLinks[i+1:], s.data.MessageLinks[i:])
++			s.data.MessageLinks[i] = removed
++			return err
++		}
++		return nil
++	}
++	return nil
++}
++
++func (s *FileStore) SetConversationProtection(_ context.Context, userID int64, enabled bool) (bot.Conversation, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	key := strconv.FormatInt(userID, 10)
++	c, found := s.data.Conversations[key]
++	if !found {
++		return bot.Conversation{}, fmt.Errorf("user %d has no conversation", userID)
++	}
++	previous := c.ProtectContent
++	c.ProtectContent = enabled
++	s.data.Conversations[key] = c
++	if err := s.persist(); err != nil {
++		c.ProtectContent = previous
++		s.data.Conversations[key] = c
++		return bot.Conversation{}, err
++	}
++	return c, nil
++}
++
++func (s *FileStore) persist() error {
++	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
++		return fmt.Errorf("create data directory: %w", err)
++	}
++	raw, err := json.MarshalIndent(s.data, "", "  ")
++	if err != nil {
++		return fmt.Errorf("encode data: %w", err)
++	}
++	tmp := s.path + ".tmp"
++	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
++		return fmt.Errorf("write data: %w", err)
++	}
++	if err := os.Rename(tmp, s.path); err != nil {
++		return fmt.Errorf("replace data: %w", err)
++	}
++	return nil
++}
+diff --git a/internal/store/file_test.go b/internal/store/file_test.go
+new file mode 100644
+index 0000000..1564898
+--- /dev/null
++++ b/internal/store/file_test.go
+@@ -0,0 +1,109 @@
++package store
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"forumdesk/internal/bot"
++)
++
++func TestFileStorePersistsConversationsAndLinks(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "nested", "data.json")
++	s, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	c := bot.Conversation{UserID: 101, TopicID: 202, DisplayName: "Ada", Username: "ada"}
++	if err := s.CreateConversation(context.Background(), c); err != nil {
++		t.Fatal(err)
++	}
++	link := bot.MessageLink{UserID: 101, UserMessageID: 1, TopicMessageID: 2}
++	if err := s.SaveMessageLink(context.Background(), link); err != nil {
++		t.Fatal(err)
++	}
++
++	reopened, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	got, ok, err := reopened.ConversationByUser(context.Background(), 101)
++	if err != nil || !ok || got != c {
++		t.Fatalf("got=%#v ok=%v err=%v", got, ok, err)
++	}
++	got, ok, err = reopened.ConversationByTopic(context.Background(), 202)
++	if err != nil || !ok || got != c {
++		t.Fatalf("topic lookup got=%#v ok=%v err=%v", got, ok, err)
++	}
++	gotLink, ok, err := reopened.MessageLinkByUser(context.Background(), 101, 1)
++	if err != nil || !ok || gotLink != link {
++		t.Fatalf("user link=%#v ok=%v err=%v", gotLink, ok, err)
++	}
++	gotLink, ok, err = reopened.MessageLinkByTopic(context.Background(), 2)
++	if err != nil || !ok || gotLink != link {
++		t.Fatalf("topic link=%#v ok=%v err=%v", gotLink, ok, err)
++	}
++	if err := reopened.DeleteMessageLink(context.Background(), 101, 1); err != nil {
++		t.Fatal(err)
++	}
++	again, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, ok, _ := again.MessageLinkByUser(context.Background(), 101, 1); ok {
++		t.Fatal("deleted link persisted")
++	}
++	updated, err := again.SetConversationProtection(context.Background(), 101, true)
++	if err != nil || !updated.ProtectContent {
++		t.Fatalf("updated=%#v err=%v", updated, err)
++	}
++	finalStore, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	finalConversation, ok, err := finalStore.ConversationByUser(context.Background(), 101)
++	if err != nil || !ok || !finalConversation.ProtectContent {
++		t.Fatalf("conversation=%#v ok=%v err=%v", finalConversation, ok, err)
++	}
++}
++
++func TestOpenFileRejectsCorruptJSON(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "data.json")
++	if err := os.WriteFile(path, []byte("{"), 0o600); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := OpenFile(path); err == nil {
++		t.Fatal("expected decode error")
++	}
++}
++
++func TestTopicLookupMissAndDuplicateTopic(t *testing.T) {
++	s, err := OpenFile(filepath.Join(t.TempDir(), "data.json"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, ok, err := s.ConversationByTopic(context.Background(), 404); err != nil || ok {
++		t.Fatalf("ok=%v err=%v", ok, err)
++	}
++	if err := s.CreateConversation(context.Background(), bot.Conversation{UserID: 1, TopicID: 2}); err != nil {
++		t.Fatal(err)
++	}
++	if err := s.CreateConversation(context.Background(), bot.Conversation{UserID: 3, TopicID: 2}); err == nil {
++		t.Fatal("expected duplicate topic error")
++	}
++}
++
++func TestFileStoreRejectsDuplicateMappings(t *testing.T) {
++	s, err := OpenFile(filepath.Join(t.TempDir(), "data.json"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	c := bot.Conversation{UserID: 1, TopicID: 2}
++	if err := s.CreateConversation(context.Background(), c); err != nil {
++		t.Fatal(err)
++	}
++	if err := s.CreateConversation(context.Background(), c); err == nil {
++		t.Fatal("expected duplicate error")
++	}
++}
+diff --git a/internal/telegram/client.go b/internal/telegram/client.go
+new file mode 100644
+index 0000000..9321d0f
+--- /dev/null
++++ b/internal/telegram/client.go
+@@ -0,0 +1,177 @@
++package telegram
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"fmt"
++	"io"
++	"net/http"
++	"strings"
++	"time"
++)
++
++type Client struct {
++	baseURL string
++	http    *http.Client
++}
++
++func NewClient(token string) *Client {
++	return &Client{
++		baseURL: "https://api.telegram.org/bot" + token + "/",
++		http:    &http.Client{Timeout: 70 * time.Second},
++	}
++}
++
++type apiResponse struct {
++	OK          bool            `json:"ok"`
++	Result      json.RawMessage `json:"result"`
++	Description string          `json:"description"`
++}
++
++func (c *Client) call(ctx context.Context, method string, payload any, out any) error {
++	body, err := json.Marshal(payload)
++	if err != nil {
++		return fmt.Errorf("encode %s: %w", method, err)
++	}
++	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+method, bytes.NewReader(body))
++	if err != nil {
++		return fmt.Errorf("create %s request: %w", method, err)
++	}
++	req.Header.Set("Content-Type", "application/json")
++	resp, err := c.http.Do(req)
++	if err != nil {
++		return fmt.Errorf("call %s: %w", method, err)
++	}
++	defer resp.Body.Close()
++	data, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
++	if err != nil {
++		return fmt.Errorf("read %s response: %w", method, err)
++	}
++	var envelope apiResponse
++	if err := json.Unmarshal(data, &envelope); err != nil {
++		return fmt.Errorf("decode %s response: %w", method, err)
++	}
++	if resp.StatusCode != http.StatusOK || !envelope.OK {
++		return fmt.Errorf("telegram %s failed (%d): %s", method, resp.StatusCode, envelope.Description)
++	}
++	if out != nil && len(envelope.Result) > 0 {
++		if err := json.Unmarshal(envelope.Result, out); err != nil {
++			return fmt.Errorf("decode %s result: %w", method, err)
++		}
++	}
++	return nil
++}
++
++func (c *Client) GetUpdates(ctx context.Context, offset int) ([]Update, error) {
++	var updates []Update
++	err := c.call(ctx, "getUpdates", map[string]any{
++		"offset": offset, "timeout": 55, "allowed_updates": []string{"message", "edited_message"},
++	}, &updates)
++	return updates, err
++}
++
++func (c *Client) EditMessageText(ctx context.Context, chatID int64, messageID int, text string) error {
++	return c.call(ctx, "editMessageText", map[string]any{"chat_id": chatID, "message_id": messageID, "text": text}, nil)
++}
++
++func (c *Client) EditMessageCaption(ctx context.Context, chatID int64, messageID int, caption string) error {
++	return c.call(ctx, "editMessageCaption", map[string]any{"chat_id": chatID, "message_id": messageID, "caption": caption}, nil)
++}
++
++func (c *Client) DeleteMessage(ctx context.Context, chatID int64, messageID int) error {
++	return c.call(ctx, "deleteMessage", map[string]any{"chat_id": chatID, "message_id": messageID}, nil)
++}
++
++func (c *Client) CreateForumTopic(ctx context.Context, chatID int64, name string) (int, error) {
++	var result struct {
++		MessageThreadID int `json:"message_thread_id"`
++	}
++	err := c.call(ctx, "createForumTopic", map[string]any{"chat_id": chatID, "name": name}, &result)
++	return result.MessageThreadID, err
++}
++
++func (c *Client) CopyMessage(ctx context.Context, chatID, fromChatID int64, messageID int, options CopyOptions) (int, error) {
++	payload := map[string]any{"chat_id": chatID, "from_chat_id": fromChatID, "message_id": messageID}
++	if options.ThreadID != 0 {
++		payload["message_thread_id"] = options.ThreadID
++	}
++	if options.ReplyToMessageID != 0 {
++		payload["reply_parameters"] = map[string]any{"message_id": options.ReplyToMessageID}
++	}
++	if options.ProtectContent {
++		payload["protect_content"] = true
++	}
++	var result struct {
++		MessageID int `json:"message_id"`
++	}
++	err := c.call(ctx, "copyMessage", payload, &result)
++	return result.MessageID, err
++}
++
++func (c *Client) SendMessage(ctx context.Context, chatID int64, text string, threadID int) (int, error) {
++	payload := map[string]any{"chat_id": chatID, "text": text}
++	if threadID != 0 {
++		payload["message_thread_id"] = threadID
++	}
++	var result Message
++	err := c.call(ctx, "sendMessage", payload, &result)
++	return result.MessageID, err
++}
++
++func (c *Client) SetAdminCommands(ctx context.Context, chatID int64) error {
++	commands := []map[string]string{
++		{"command": "protect", "description": "内容保护状态或开关：/protect on|off"},
++		{"command": "delete", "description": "回复一条消息后双端删除"},
++		{"command": "help", "description": "显示管理员命令说明"},
++	}
++	return c.call(ctx, "setMyCommands", map[string]any{
++		"commands": commands,
++		"scope":    map[string]any{"type": "chat_administrators", "chat_id": chatID},
++	}, nil)
++}
++
++func (c *Client) SendReplyMessage(ctx context.Context, chatID int64, text string, threadID, replyToMessageID int) (int, error) {
++	payload := map[string]any{
++		"chat_id":          chatID,
++		"text":             text,
++		"reply_parameters": map[string]any{"message_id": replyToMessageID},
++	}
++	if threadID != 0 {
++		payload["message_thread_id"] = threadID
++	}
++	var result Message
++	err := c.call(ctx, "sendMessage", payload, &result)
++	return result.MessageID, err
++}
++
++func (c *Client) SendPhotoByFileID(ctx context.Context, chatID int64, fileID, caption string, threadID int) (int, error) {
++	payload := map[string]any{"chat_id": chatID, "photo": fileID}
++	if caption != "" {
++		payload["caption"] = caption
++	}
++	if threadID != 0 {
++		payload["message_thread_id"] = threadID
++	}
++	var result Message
++	err := c.call(ctx, "sendPhoto", payload, &result)
++	return result.MessageID, err
++}
++
++func (c *Client) FirstProfilePhoto(ctx context.Context, userID int64) (string, bool, error) {
++	var result struct {
++		TotalCount int `json:"total_count"`
++		Photos     [][]struct {
++			FileID string `json:"file_id"`
++		} `json:"photos"`
++	}
++	err := c.call(ctx, "getUserProfilePhotos", map[string]any{"user_id": userID, "limit": 1}, &result)
++	if err != nil {
++		return "", false, err
++	}
++	if result.TotalCount == 0 || len(result.Photos) == 0 || len(result.Photos[0]) == 0 {
++		return "", false, nil
++	}
++	photo := result.Photos[0][len(result.Photos[0])-1].FileID
++	return photo, strings.TrimSpace(photo) != "", nil
++}
+diff --git a/internal/telegram/client_test.go b/internal/telegram/client_test.go
+new file mode 100644
+index 0000000..60fe14f
+--- /dev/null
++++ b/internal/telegram/client_test.go
+@@ -0,0 +1,183 @@
++package telegram
++
++import (
++	"context"
++	"encoding/json"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++)
++
++func testClient(t *testing.T, result any) (*Client, *map[string]any, *string) {
++	t.Helper()
++	gotPayload := map[string]any{}
++	gotPath := ""
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotPath = r.URL.Path
++		if err := json.NewDecoder(r.Body).Decode(&gotPayload); err != nil {
++			t.Error(err)
++		}
++		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "result": result})
++	}))
++	t.Cleanup(server.Close)
++	return &Client{baseURL: server.URL + "/", http: server.Client()}, &gotPayload, &gotPath
++}
++
++func TestCreateForumTopic(t *testing.T) {
++	c, payload, path := testClient(t, map[string]any{"message_thread_id": 42, "name": "Ada"})
++	id, err := c.CreateForumTopic(context.Background(), -1001, "Ada")
++	if err != nil || id != 42 {
++		t.Fatalf("id=%d err=%v", id, err)
++	}
++	if *path != "/createForumTopic" || (*payload)["chat_id"] != float64(-1001) {
++		t.Fatalf("path=%s payload=%v", *path, *payload)
++	}
++}
++
++func TestCopyMessageIncludesTopicOnlyWhenProvided(t *testing.T) {
++	c, payload, _ := testClient(t, map[string]any{"message_id": 99})
++	id, err := c.CopyMessage(context.Background(), -1001, 7, 8, CopyOptions{ThreadID: 42, ReplyToMessageID: 41, ProtectContent: true})
++	if err != nil || id != 99 || (*payload)["message_thread_id"] != float64(42) {
++		t.Fatalf("id=%d payload=%v err=%v", id, *payload, err)
++	}
++	if (*payload)["protect_content"] != true || (*payload)["reply_parameters"].(map[string]any)["message_id"] != float64(41) {
++		t.Fatalf("payload=%v", *payload)
++	}
++
++	c, payload, _ = testClient(t, map[string]any{"message_id": 100})
++	_, err = c.CopyMessage(context.Background(), 7, -1001, 9, CopyOptions{})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, ok := (*payload)["message_thread_id"]; ok {
++		t.Fatalf("unexpected thread: %v", *payload)
++	}
++	if _, ok := (*payload)["protect_content"]; ok {
++		t.Fatalf("unexpected protection: %v", *payload)
++	}
++}
++
++func TestGetUpdatesAndProfilePhoto(t *testing.T) {
++	c, payload, path := testClient(t, []map[string]any{{"update_id": 5, "message": map[string]any{"message_id": 1, "chat": map[string]any{"id": 7, "type": "private"}}}})
++	updates, err := c.GetUpdates(context.Background(), 5)
++	if err != nil || len(updates) != 1 || updates[0].UpdateID != 5 {
++		t.Fatalf("updates=%v err=%v", updates, err)
++	}
++	if *path != "/getUpdates" || (*payload)["offset"] != float64(5) {
++		t.Fatalf("path=%s payload=%v", *path, *payload)
++	}
++	allowed := (*payload)["allowed_updates"].([]any)
++	if len(allowed) != 2 || allowed[1] != "edited_message" {
++		t.Fatalf("allowed_updates=%v", allowed)
++	}
++
++	c, _, _ = testClient(t, map[string]any{"total_count": 1, "photos": [][]map[string]any{{{"file_id": "small"}, {"file_id": "large"}}}})
++	fileID, ok, err := c.FirstProfilePhoto(context.Background(), 7)
++	if err != nil || !ok || fileID != "large" {
++		t.Fatalf("file=%q ok=%v err=%v", fileID, ok, err)
++	}
++}
++
++func TestEditAndDeleteMessages(t *testing.T) {
++	c, payload, path := testClient(t, true)
++	if err := c.EditMessageText(context.Background(), 7, 8, "changed"); err != nil {
++		t.Fatal(err)
++	}
++	if *path != "/editMessageText" || (*payload)["text"] != "changed" {
++		t.Fatalf("path=%s payload=%v", *path, *payload)
++	}
++
++	c, payload, path = testClient(t, true)
++	if err := c.EditMessageCaption(context.Background(), 7, 8, "caption"); err != nil {
++		t.Fatal(err)
++	}
++	if *path != "/editMessageCaption" || (*payload)["caption"] != "caption" {
++		t.Fatalf("path=%s payload=%v", *path, *payload)
++	}
++
++	c, payload, path = testClient(t, true)
++	if err := c.DeleteMessage(context.Background(), 7, 8); err != nil {
++		t.Fatal(err)
++	}
++	if *path != "/deleteMessage" || (*payload)["message_id"] != float64(8) {
++		t.Fatalf("path=%s payload=%v", *path, *payload)
++	}
++}
++
++func TestSendReplyMessage(t *testing.T) {
++	c, payload, path := testClient(t, map[string]any{"message_id": 13, "chat": map[string]any{"id": -1001, "type": "supergroup"}})
++	id, err := c.SendReplyMessage(context.Background(), -1001, "修改后", 42, 99)
++	if err != nil || id != 13 || *path != "/sendMessage" {
++		t.Fatalf("id=%d path=%s err=%v", id, *path, err)
++	}
++	reply := (*payload)["reply_parameters"].(map[string]any)
++	if reply["message_id"] != float64(99) || (*payload)["message_thread_id"] != float64(42) {
++		t.Fatalf("payload=%v", *payload)
++	}
++}
++
++func TestSendMessageAndPhoto(t *testing.T) {
++	c, payload, path := testClient(t, map[string]any{"message_id": 11, "chat": map[string]any{"id": -1001, "type": "supergroup"}})
++	id, err := c.SendMessage(context.Background(), -1001, "card", 42)
++	if err != nil || id != 11 || *path != "/sendMessage" || (*payload)["message_thread_id"] != float64(42) {
++		t.Fatalf("id=%d path=%s payload=%v err=%v", id, *path, *payload, err)
++	}
++
++	c, payload, path = testClient(t, map[string]any{"message_id": 12, "chat": map[string]any{"id": -1001, "type": "supergroup"}})
++	id, err = c.SendPhotoByFileID(context.Background(), -1001, "file", "caption", 42)
++	if err != nil || id != 12 || *path != "/sendPhoto" || (*payload)["photo"] != "file" {
++		t.Fatalf("id=%d path=%s payload=%v err=%v", id, *path, *payload, err)
++	}
++}
++
++func TestAdminCommandMenu(t *testing.T) {
++	c, payload, path := testClient(t, true)
++	if err := c.SetAdminCommands(context.Background(), -1001); err != nil {
++		t.Fatal(err)
++	}
++	if *path != "/setMyCommands" {
++		t.Fatalf("path=%s", *path)
++	}
++	scope := (*payload)["scope"].(map[string]any)
++	commands := (*payload)["commands"].([]any)
++	if scope["type"] != "chat_administrators" || scope["chat_id"] != float64(-1001) || len(commands) != 3 {
++		t.Fatalf("payload=%v", *payload)
++	}
++}
++
++func TestAPIFailureReturnsDescription(t *testing.T) {
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		w.WriteHeader(http.StatusBadRequest)
++		_, _ = w.Write([]byte(`{"ok":false,"description":"bad request"}`))
++	}))
++	defer server.Close()
++	c := &Client{baseURL: server.URL + "/", http: server.Client()}
++	if _, err := c.CreateForumTopic(context.Background(), -1, "Ada"); err == nil {
++		t.Fatal("expected error")
++	}
++}
++
++func TestNewClientAndNoProfilePhoto(t *testing.T) {
++	c := NewClient("secret")
++	if c.baseURL != "https://api.telegram.org/botsecret/" {
++		t.Fatalf("base URL=%q", c.baseURL)
++	}
++
++	c, _, _ = testClient(t, map[string]any{"total_count": 0, "photos": []any{}})
++	fileID, ok, err := c.FirstProfilePhoto(context.Background(), 7)
++	if err != nil || ok || fileID != "" {
++		t.Fatalf("file=%q ok=%v err=%v", fileID, ok, err)
++	}
++}
++
++func TestCallRejectsMalformedResponseAndUnencodablePayload(t *testing.T) {
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("not-json")) }))
++	defer server.Close()
++	c := &Client{baseURL: server.URL + "/", http: server.Client()}
++	if _, err := c.CreateForumTopic(context.Background(), -1, "Ada"); err == nil {
++		t.Fatal("expected decode error")
++	}
++	if err := c.call(context.Background(), "test", make(chan int), nil); err == nil {
++		t.Fatal("expected encode error")
++	}
++}
+diff --git a/internal/telegram/types.go b/internal/telegram/types.go
+new file mode 100644
+index 0000000..5851e81
+--- /dev/null
++++ b/internal/telegram/types.go
+@@ -0,0 +1,36 @@
++package telegram
++
++type Update struct {
++	UpdateID      int      `json:"update_id"`
++	Message       *Message `json:"message,omitempty"`
++	EditedMessage *Message `json:"edited_message,omitempty"`
++}
++
++type Message struct {
++	MessageID       int      `json:"message_id"`
++	MessageThreadID int      `json:"message_thread_id,omitempty"`
++	From            *User    `json:"from,omitempty"`
++	Chat            Chat     `json:"chat"`
++	Text            string   `json:"text,omitempty"`
++	Caption         string   `json:"caption,omitempty"`
++	ReplyToMessage  *Message `json:"reply_to_message,omitempty"`
++}
++
++type User struct {
++	ID        int64  `json:"id"`
++	IsBot     bool   `json:"is_bot"`
++	FirstName string `json:"first_name,omitempty"`
++	LastName  string `json:"last_name,omitempty"`
++	Username  string `json:"username,omitempty"`
++}
++
++type Chat struct {
++	ID   int64  `json:"id"`
++	Type string `json:"type"`
++}
++
++type CopyOptions struct {
++	ThreadID         int
++	ReplyToMessageID int
++	ProtectContent   bool
++}
+diff --git a/scripts/rollback.sh b/scripts/rollback.sh
+new file mode 100755
+index 0000000..12be7f2
+--- /dev/null
++++ b/scripts/rollback.sh
+@@ -0,0 +1,8 @@
++#!/bin/sh
++set -eu
++
++ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
++cd "$ROOT"
++
++rm -rf cmd internal data dist artifacts README.html Dockerfile compose.yaml Makefile go.mod .env.example .gitignore
++printf 'ForumDesk generated files removed. Git metadata was preserved.\n'

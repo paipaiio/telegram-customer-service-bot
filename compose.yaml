@@ -1,0 +1,10 @@
+services:
+  forumdesk:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - forumdesk-data:/app/data
+
+volumes:
+  forumdesk-data:
