@@ -4,7 +4,7 @@
 
 **Bridge Telegram DMs and website support chats into dedicated forum topics.**
 
-[简体中文](README.md) · [Interactive docs](README_EN.html) · [Web API](API.html) · [OpenAPI](openapi.json)
+[简体中文](README.md) · [Web API](API_EN.md) · [Browser integration](examples/web-client_EN.md) · [Interactive docs](README_EN.html)
 
 [![Docker Build](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg)](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml)
 [![Go 1.23](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](go.mod)
@@ -182,9 +182,11 @@ docker compose up -d --build
 
 The recommended integration keeps the browser on your application's origin. Your application backend calls ForumDesk over a private network, so the integration key remains server-side.
 
+- [Web API documentation](API_EN.md)
 - [Interactive API documentation](API.html)
 - [OpenAPI 3.1 specification](openapi.json)
-- [Browser integration example](examples/web-client.html)
+- [Browser client guide](examples/web-client_EN.md)
+- [Runnable browser example](examples/web-client.html)
 
 ## Administrator Commands
 
@@ -232,6 +234,7 @@ internal/store/      atomic JSON persistence
 internal/telegram/   Telegram Bot API client
 internal/webapi/     web support REST API
 examples/            browser integration example
+API_EN.md            default Web API documentation
 API.html             interactive API documentation
 openapi.json         OpenAPI 3.1 specification
 ```

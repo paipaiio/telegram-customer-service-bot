@@ -4,7 +4,7 @@
 
 **把 Telegram 私聊和网页客服统一接入独立 Forum Topic。**
 
-[English](README_EN.md) · [交互式文档](README.html) · [Web API](API.html) · [OpenAPI](openapi.json)
+[English](README_EN.md) · [Web API](API.md) · [网页接入示例](examples/web-client.md) · [交互式文档](README.html)
 
 [![Docker Build](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg)](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml)
 [![Go 1.23](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](go.mod)
@@ -182,9 +182,11 @@ docker compose up -d --build
 
 推荐接入方式：浏览器请求业务系统自己的同域后端，业务后端通过内网调用 ForumDesk。这样集成密钥始终留在服务器端。
 
+- [Web API 文档](API.md)
 - [交互式 API 文档](API.html)
 - [OpenAPI 3.1](openapi.json)
-- [浏览器接入示例](examples/web-client.html)
+- [网页客户端接入说明](examples/web-client.md)
+- [可运行网页示例](examples/web-client.html)
 
 ## 管理员命令
 
@@ -232,6 +234,7 @@ internal/store/      JSON 原子持久化
 internal/telegram/   Telegram Bot API 客户端
 internal/webapi/     网页客服 REST API
 examples/            网页接入示例
+API.md               默认 Web API 文档
 API.html             交互式 API 文档
 openapi.json         OpenAPI 3.1 规范
 ```

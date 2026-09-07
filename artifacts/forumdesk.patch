@@ -94,21 +94,22 @@ index 0000000..e7d1f07
 +.DS_Store
 diff --git a/API.html b/API.html
 new file mode 100644
-index 0000000..36304c7
+index 0000000..fb54f11
 --- /dev/null
 +++ b/API.html
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,55 @@
 +<!doctype html>
 +<html lang="zh-CN">
 +<head>
 +  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++  <link rel="alternate" type="text/markdown" href="API.md" title="Markdown source">
 +  <title>ForumDesk Web API v1</title>
 +  <style>
 +    :root{--bg:#07111f;--panel:#101e31;--panel2:#14263d;--line:#29415f;--text:#edf5ff;--muted:#9db0c9;--blue:#62b0ff;--green:#52d39d;--amber:#ffd279}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0,#173d68 0,transparent 35%),var(--bg);color:var(--text);font:15px/1.65 system-ui,sans-serif}.layout{display:grid;grid-template-columns:250px minmax(0,940px);gap:36px;max-width:1260px;margin:auto;padding:34px 22px 80px}nav{position:sticky;top:20px;align-self:start;background:#0c1929e8;border:1px solid var(--line);border-radius:18px;padding:20px}nav strong{font-size:20px}nav a{display:block;color:var(--muted);text-decoration:none;padding:6px 0}nav a:hover{color:var(--blue)}header{padding:32px;border-radius:22px;background:linear-gradient(140deg,#17345b,#0d1d31);border:1px solid #34618d}h1{font-size:40px;line-height:1.15;margin:12px 0}.tag,.method{display:inline-flex;border-radius:999px;padding:3px 9px;font-size:12px}.tag{border:1px solid #3e7eb8;color:#abd8ff}.method{background:#174933;color:#87e8bd;margin-right:8px}section{margin-top:34px;scroll-margin-top:20px}h2{font-size:24px}.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:20px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.endpoint{border-left:4px solid var(--green)}code{color:#acd8ff}.code{position:relative}.copy{position:absolute;right:9px;top:9px;z-index:2;background:#18324f;color:#e8f4ff;border:1px solid #426487;border-radius:8px;padding:6px 9px;cursor:pointer}pre{margin:0;overflow:auto;padding:18px;background:#06101c;border:1px solid #203750;border-radius:12px;color:#d9ecff;font:13px/1.6 ui-monospace,monospace}.note{border-left:3px solid var(--amber);padding:10px 14px;background:#2b2515;color:#ffe2a9;border-radius:0 10px 10px 0}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px 8px;color:var(--muted)}th{color:var(--text)}input{width:100%;background:#071321;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px}.ok{color:var(--green)}@media(max-width:760px){.layout{display:block;padding:18px 12px 50px}nav{position:static;margin-bottom:18px}.grid{grid-template-columns:1fr}h1{font-size:31px}}
 +  </style>
 +</head>
 +<body><div class="layout">
-+  <nav><strong>ForumDesk API</strong><p><span class="tag">REST · v1</span></p><a href="#start">快速开始</a><a href="#auth">认证模型</a><a href="#create">创建会话</a><a href="#send">发送消息</a><a href="#list">读取消息</a><a href="#visibility">成员可见性</a><a href="#errors">错误与限流</a><a href="openapi.json">OpenAPI JSON</a><a href="examples/web-client.html">网页客户端示例</a></nav>
++  <nav><strong>ForumDesk API</strong><p><span class="tag">REST · v1</span></p><a href="API.md">Markdown 文档</a><a href="API_EN.md">English Markdown</a><a href="#start">快速开始</a><a href="#auth">认证模型</a><a href="#create">创建会话</a><a href="#send">发送消息</a><a href="#list">读取消息</a><a href="#visibility">成员可见性</a><a href="#errors">错误与限流</a><a href="openapi.json">OpenAPI JSON</a><a href="examples/web-client.md">网页客户端说明</a></nav>
 +  <main>
 +    <header><span class="tag">ForumDesk Web API v1</span><h1>网页客服接入 Telegram Topic</h1><p>网页访客通过 REST API 发起会话，ForumDesk 在 Telegram 超级群创建独立 Topic。客户消息由 Bot 发入 Topic，已授权客服的回复则进入网页轮询队列。</p></header>
 +
@@ -152,6 +153,492 @@ index 0000000..36304c7
 +</div><script>
 +const base=document.getElementById('base');function sync(){document.querySelectorAll('pre').forEach(el=>{if(!el.dataset.raw)el.dataset.raw=el.textContent;el.textContent=el.dataset.raw.replaceAll('$BASE',base.value.replace(/\/$/,''));});}base.addEventListener('input',sync);sync();document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent);const old=btn.textContent;btn.textContent='已复制';setTimeout(()=>btn.textContent=old,1000);}));
 +</script></body></html>
+diff --git a/API.md b/API.md
+new file mode 100644
+index 0000000..48438f3
+--- /dev/null
++++ b/API.md
+@@ -0,0 +1,254 @@
++# ForumDesk Web API v1
++
++[English](API_EN.md) · [交互式 HTML](API.html) · [OpenAPI 3.1](openapi.json) · [返回项目首页](README.md)
++
++ForumDesk Web API 将网站访客会话接入 Telegram Forum Topic。网站后端使用集成密钥创建会话，浏览器或业务后端使用会话级 `visitor_token` 收发消息。
++
++## 接入模型
++
++```mermaid
++sequenceDiagram
++    participant Browser as 浏览器
++    participant Backend as 业务系统后端
++    participant API as ForumDesk API
++    participant Topic as Telegram Topic
++    Browser->>Backend: 创建客服会话
++    Backend->>API: POST /api/v1/conversations + WEB_API_KEY
++    API->>Topic: 创建 Topic 和访客资料卡
++    API-->>Backend: conversation_id + visitor_token
++    Browser->>Backend: 发送或读取消息
++    Backend->>API: 使用 visitor_token 请求
++    API->>Topic: 转发客户消息
++    Topic->>API: 管理员或已授权客服回复
++    API-->>Backend: 游标增量消息
++    Backend-->>Browser: 渲染客服回复
++```
++
++推荐由业务后端代理 ForumDesk 请求，让 `WEB_API_KEY` 和 `visitor_token` 留在服务器端。浏览器直接使用访客 Token 时，需要配置精确的 `WEB_ALLOWED_ORIGINS`。
++
++## 基础地址
++
++```text
++http://HOST:8080
++```
++
++Tailscale 示例：
++
++```text
++http://100.64.0.2:8980
++```
++
++## 认证
++
++| 凭据 | 使用位置 | 请求头 |
++|---|---|---|
++| `WEB_API_KEY` | 创建会话，只放业务后端 | `Authorization: Bearer WEB_API_KEY` |
++| `visitor_token` | 当前网页会话的消息收发 | `Authorization: Bearer VISITOR_TOKEN` |
++
++`visitor_token` 只在创建会话时返回一次，ForumDesk 数据文件保存其 SHA-256 摘要。
++
++## 健康检查
++
++```http
++GET /healthz
++```
++
++```bash
++curl http://100.64.0.2:8980/healthz
++```
++
++```json
++{"data":{"status":"ok"}}
++```
++
++## 创建会话
++
++```http
++POST /api/v1/conversations
++Authorization: Bearer WEB_API_KEY
++Content-Type: application/json
++```
++
++请求字段：
++
++| 字段 | 必填 | 限制 | 说明 |
++|---|---|---|---|
++| `visitor_name` | 是 | 1–128 字符 | 访客显示名称 |
++| `email` | 否 | 最多 254 字节 | 访客邮箱 |
++| `external_id` | 否 | 最多 128 字节 | 业务系统用户或订单 ID |
++| `page_url` | 否 | HTTP/HTTPS URL | 发起咨询的页面 |
++
++```bash
++curl -X POST "http://100.64.0.2:8980/api/v1/conversations" \
++  -H "Authorization: Bearer $FORUMDESK_API_KEY" \
++  -H "Content-Type: application/json" \
++  -d '{
++    "visitor_name": "张三",
++    "email": "user@example.com",
++    "external_id": "customer-10001",
++    "page_url": "https://www.example.com/pricing"
++  }'
++```
++
++`201 Created`：
++
++```json
++{
++  "data": {
++    "id": "wc_...",
++    "visitor_token": "wv_...",
++    "status": "open",
++    "created_at": "2026-09-07T10:00:00Z"
++  }
++}
++```
++
++创建成功后，Telegram 客服群会出现对应 Topic 和访客资料卡。
++
++## 发送消息
++
++```http
++POST /api/v1/conversations/{conversation_id}/messages
++Authorization: Bearer VISITOR_TOKEN
++Content-Type: application/json
++```
++
++普通消息：
++
++```json
++{"text":"我想了解商务方案"}
++```
++
++引用回复：
++
++```json
++{
++  "text": "这是补充信息",
++  "reply_to_message_id": "wm_..."
++}
++```
++
++`text` 去除首尾空白后长度为 1–4000 字符。`reply_to_message_id` 需要指向当前会话中仍然可见的消息。
++
++```javascript
++const response = await fetch(
++  `${FORUMDESK_API_BASE}/api/v1/conversations/${conversationId}/messages`,
++  {
++    method: "POST",
++    headers: {
++      Authorization: `Bearer ${visitorToken}`,
++      "Content-Type": "application/json"
++    },
++    body: JSON.stringify({ text, reply_to_message_id: replyToId })
++  }
++);
++```
++
++## 增量读取消息
++
++```http
++GET /api/v1/conversations/{conversation_id}/messages?after=0&limit=50
++Authorization: Bearer VISITOR_TOKEN
++```
++
++| 参数 | 默认值 | 范围 |
++|---|---:|---:|
++| `after` | `0` | 非负整数游标 |
++| `limit` | `50` | `1–100` |
++
++```json
++{
++  "data": [
++    {
++      "id": "wm_...",
++      "conversation_id": "wc_...",
++      "sequence": 12,
++      "direction": "staff",
++      "text": "您好，我来协助您。",
++      "staff_name": "商务负责人",
++      "reply_to_message_id": "wm_...",
++      "visible": true,
++      "created_at": "2026-09-07T10:01:00Z"
++    }
++  ],
++  "meta": {
++    "next_cursor": 12
++  }
++}
++```
++
++下一次请求把 `meta.next_cursor` 作为 `after`。当前示例客户端每两秒轮询一次。
++
++### 消息方向
++
++| `direction` | 说明 |
++|---|---|
++| `customer` | 网页客户消息 |
++| `staff` | Telegram 客服回复 |
++| `system` | 系统事件 |
++
++### 隐藏事件
++
++管理员在 Telegram Topic 中对已发布消息执行 `/hide` 后，API 返回：
++
++```json
++{
++  "id": "wm_...",
++  "direction": "system",
++  "event": "message_hidden",
++  "target_message_id": "wm_original",
++  "sequence": 13,
++  "visible": true
++}
++```
++
++客户端收到后，根据 `target_message_id` 移除已渲染消息。
++
++## Telegram 可见性命令
++
++| 命令 | 作用 |
++|---|---|
++| `/allow_staff` | 回复成员消息，允许该成员在当前 Topic 自动外发 |
++| `/deny_staff` | 取消成员在当前 Topic 的自动外发权限 |
++| `/staff` | 查看已授权成员 |
++| `/show` | 把一条内部消息发布给客户 |
++| `/hide` | 把一条已发布消息转为仅管理端可见 |
++
++群管理员发言默认对客户可见，普通成员默认仅在 Topic 内可见。
++
++## 错误
++
++```json
++{
++  "error": {
++    "code": "validation_error",
++    "message": "..."
++  }
++}
++```
++
++| HTTP 状态 | 常见含义 |
++|---:|---|
++| `400` | JSON、游标或分页参数错误 |
++| `401` | 集成密钥或访客凭据错误 |
++| `409` | 会话创建冲突 |
++| `422` | 字段验证或引用目标错误 |
++| `429` | 请求超过速率限制，读取 `Retry-After` |
++| `500` | 存储或内部处理错误 |
++| `502` | Telegram 上游请求错误 |
++
++## 限制与安全建议
++
++- 默认每个集成密钥或会话每分钟 60 次请求，通过 `WEB_RATE_LIMIT_PER_MINUTE` 调整。
++- JSON 请求体上限为 16 KiB。
++- `WEB_ALLOWED_ORIGINS` 使用完整 Origin，例如 `https://support.example.com`，不包含路径和末尾斜杠。
++- 业务后端应校验当前登录用户对 `conversation_id` 的所有权。
++- 日志中应对 `WEB_API_KEY` 和 `visitor_token` 脱敏。
++- 当前 Web API v1 使用文本消息和增量轮询。
++
++## 相关文件
++
++- [OpenAPI 3.1 规范](openapi.json)
++- [网页客户端接入说明](examples/web-client.md)
++- [可运行网页示例](examples/web-client.html)
++- [ForumDesk 中文说明](README.md)
+diff --git a/API_EN.md b/API_EN.md
+new file mode 100644
+index 0000000..8a7ab6f
+--- /dev/null
++++ b/API_EN.md
+@@ -0,0 +1,220 @@
++# ForumDesk Web API v1
++
++[简体中文](API.md) · [Interactive HTML](API.html) · [OpenAPI 3.1](openapi.json) · [Project README](README_EN.md)
++
++ForumDesk Web API connects website visitors to Telegram forum topics. Your application backend creates conversations with an integration key. A conversation-scoped `visitor_token` authenticates message delivery and polling.
++
++## Integration model
++
++```mermaid
++sequenceDiagram
++    participant Browser
++    participant Backend as Application backend
++    participant API as ForumDesk API
++    participant Topic as Telegram Topic
++    Browser->>Backend: Start support conversation
++    Backend->>API: POST /api/v1/conversations + WEB_API_KEY
++    API->>Topic: Create topic and visitor profile
++    API-->>Backend: conversation_id + visitor_token
++    Browser->>Backend: Send or poll messages
++    Backend->>API: Request with visitor_token
++    API->>Topic: Deliver customer message
++    Topic->>API: Admin or approved staff reply
++    API-->>Backend: Cursor-based message page
++    Backend-->>Browser: Render reply
++```
++
++The recommended architecture proxies ForumDesk through your application backend, keeping `WEB_API_KEY` and `visitor_token` server-side. Direct browser access requires an exact `WEB_ALLOWED_ORIGINS` entry.
++
++## Base URL
++
++```text
++http://HOST:8080
++```
++
++Tailscale example:
++
++```text
++http://100.64.0.2:8980
++```
++
++## Authentication
++
++| Credential | Use | Header |
++|---|---|---|
++| `WEB_API_KEY` | Create conversations from the application backend | `Authorization: Bearer WEB_API_KEY` |
++| `visitor_token` | Send and poll messages for one conversation | `Authorization: Bearer VISITOR_TOKEN` |
++
++The visitor token is returned once. ForumDesk stores only its SHA-256 digest.
++
++## Health check
++
++```bash
++curl http://100.64.0.2:8980/healthz
++```
++
++```json
++{"data":{"status":"ok"}}
++```
++
++## Create a conversation
++
++```http
++POST /api/v1/conversations
++Authorization: Bearer WEB_API_KEY
++Content-Type: application/json
++```
++
++| Field | Required | Limit | Description |
++|---|---|---|---|
++| `visitor_name` | Yes | 1–128 characters | Visitor display name |
++| `email` | No | 254 bytes | Visitor email |
++| `external_id` | No | 128 bytes | Application user or order ID |
++| `page_url` | No | HTTP/HTTPS URL | Page where support started |
++
++```bash
++curl -X POST "http://100.64.0.2:8980/api/v1/conversations" \
++  -H "Authorization: Bearer $FORUMDESK_API_KEY" \
++  -H "Content-Type: application/json" \
++  -d '{
++    "visitor_name": "Ada",
++    "email": "ada@example.com",
++    "external_id": "customer-10001",
++    "page_url": "https://www.example.com/pricing"
++  }'
++```
++
++```json
++{
++  "data": {
++    "id": "wc_...",
++    "visitor_token": "wv_...",
++    "status": "open",
++    "created_at": "2026-09-07T10:00:00Z"
++  }
++}
++```
++
++A successful request creates the matching Telegram topic and visitor profile card.
++
++## Send a message
++
++```http
++POST /api/v1/conversations/{conversation_id}/messages
++Authorization: Bearer VISITOR_TOKEN
++Content-Type: application/json
++```
++
++```json
++{"text":"I would like to discuss pricing."}
++```
++
++Quoted reply:
++
++```json
++{
++  "text": "Here is more context.",
++  "reply_to_message_id": "wm_..."
++}
++```
++
++After trimming, `text` must contain 1–4,000 characters. `reply_to_message_id` must reference a visible message in the same conversation.
++
++## Poll messages
++
++```http
++GET /api/v1/conversations/{conversation_id}/messages?after=0&limit=50
++Authorization: Bearer VISITOR_TOKEN
++```
++
++| Parameter | Default | Range |
++|---|---:|---:|
++| `after` | `0` | Non-negative cursor |
++| `limit` | `50` | `1–100` |
++
++```json
++{
++  "data": [
++    {
++      "id": "wm_...",
++      "conversation_id": "wc_...",
++      "sequence": 12,
++      "direction": "staff",
++      "text": "Hello, I can help with that.",
++      "staff_name": "Sales",
++      "reply_to_message_id": "wm_...",
++      "visible": true,
++      "created_at": "2026-09-07T10:01:00Z"
++    }
++  ],
++  "meta": {"next_cursor": 12}
++}
++```
++
++Use `meta.next_cursor` as the next `after` value. The example client polls every two seconds.
++
++### Directions and events
++
++| Value | Meaning |
++|---|---|
++| `customer` | Website customer message |
++| `staff` | Telegram staff reply |
++| `system` | System event |
++
++After an administrator applies `/hide`, clients receive a visible tombstone event:
++
++```json
++{
++  "direction": "system",
++  "event": "message_hidden",
++  "target_message_id": "wm_original",
++  "sequence": 13,
++  "visible": true
++}
++```
++
++Remove the rendered message identified by `target_message_id`.
++
++## Telegram visibility commands
++
++| Command | Purpose |
++|---|---|
++| `/allow_staff` | Reply to a member and approve automatic publishing in this topic |
++| `/deny_staff` | Revoke automatic publishing in this topic |
++| `/staff` | List approved members |
++| `/show` | Publish one internal message |
++| `/hide` | Make one published message internal |
++
++Administrator messages are visible by default. Regular member messages are internal by default.
++
++## Errors
++
++```json
++{"error":{"code":"validation_error","message":"..."}}
++```
++
++| HTTP status | Meaning |
++|---:|---|
++| `400` | Invalid JSON, cursor, or pagination |
++| `401` | Invalid integration or visitor credential |
++| `409` | Conversation conflict |
++| `422` | Invalid field or reply target |
++| `429` | Rate limit; inspect `Retry-After` |
++| `500` | Storage or internal error |
++| `502` | Telegram upstream error |
++
++## Limits and security
++
++- The default rate limit is 60 requests per minute per integration key or conversation.
++- JSON request bodies are limited to 16 KiB.
++- Use complete CORS origins such as `https://support.example.com`, without paths or trailing slashes.
++- Verify that the signed-in application user owns each `conversation_id`.
++- Redact `WEB_API_KEY` and `visitor_token` from logs.
++- Web API v1 currently uses text messages and cursor polling.
++
++## Related files
++
++- [OpenAPI 3.1 specification](openapi.json)
++- [Browser client guide](examples/web-client_EN.md)
++- [Runnable browser example](examples/web-client.html)
++- [ForumDesk English README](README_EN.md)
 diff --git a/Dockerfile b/Dockerfile
 new file mode 100644
 index 0000000..d34e425
@@ -644,14 +1131,15 @@ index 0000000..3d45d08
 +	docker compose up -d --build
 diff --git a/README.html b/README.html
 new file mode 100644
-index 0000000..5cc47f8
+index 0000000..5b14aa1
 --- /dev/null
 +++ b/README.html
-@@ -0,0 +1,300 @@
+@@ -0,0 +1,304 @@
 +<!doctype html>
 +<html lang="zh-CN">
 +<head>
 +<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++<link rel="alternate" type="text/markdown" href="README.md" title="Markdown source">
 +<title>ForumDesk 中文文档</title>
 +<style>
 +:root{--bg:#f6f8fa;--paper:#fff;--text:#1f2328;--muted:#59636e;--line:#d0d7de;--accent:#0969da;--code:#f6f8fa;--ok:#1a7f37}@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--paper:#161b22;--text:#e6edf3;--muted:#8d96a0;--line:#30363d;--accent:#58a6ff;--code:#0d1117;--ok:#3fb950}}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}.topbar{position:sticky;top:0;z-index:20;height:58px;display:flex;align-items:center;gap:14px;padding:0 22px;background:color-mix(in srgb,var(--paper) 94%,transparent);border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}.brand{font-weight:700}.topbar a{color:var(--accent);text-decoration:none}.search{margin-left:auto;width:min(320px,40vw);padding:8px 11px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}.layout{display:grid;grid-template-columns:230px minmax(0,900px);gap:34px;max-width:1210px;margin:0 auto;padding:28px 20px 72px}nav{position:sticky;top:82px;align-self:start;max-height:calc(100vh - 105px);overflow:auto}nav strong{display:block;margin-bottom:10px}nav a{display:block;padding:5px 9px;border-left:2px solid var(--line);color:var(--muted);text-decoration:none}nav a:hover,nav a.active{border-color:var(--accent);color:var(--accent)}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}.tabs a{padding:6px 10px;border:1px solid var(--line);border-radius:6px;color:var(--accent);text-decoration:none;background:var(--paper)}main{min-width:0}article{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:34px 42px}section{padding-top:10px;scroll-margin-top:74px}h1{font-size:2.25rem;margin:.1em 0}h2{font-size:1.55rem;border-bottom:1px solid var(--line);padding-bottom:.32em;margin-top:1.8em}h3{font-size:1.15rem;margin-top:1.5em}a{color:var(--accent)}img{max-width:100%}table{width:100%;border-collapse:collapse;display:block;overflow:auto}th,td{padding:8px 11px;border:1px solid var(--line);text-align:left}tr:nth-child(2n){background:var(--bg)}blockquote{margin:16px 0;padding:8px 14px;border-left:4px solid var(--accent);color:var(--muted);background:var(--bg)}.highlight,pre{position:relative;background:var(--code)!important;border:1px solid var(--line);border-radius:6px;overflow:auto}pre{padding:16px!important}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}p code,li code,td code{padding:.12em .32em;border-radius:4px;background:var(--code)}.copy{position:absolute;right:7px;top:7px;z-index:3;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--accent);cursor:pointer}.builder{margin-top:20px;padding:18px;background:var(--paper);border:1px solid var(--line);border-radius:8px}.builder h2{margin:0 0 12px;font-size:1.1rem;border:0}.controls{display:grid;grid-template-columns:1fr 120px;gap:10px}.controls label{color:var(--muted);font-size:13px}.controls input{display:block;width:100%;padding:8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--text)}.builder pre{margin-bottom:0}.empty{display:none;padding:30px;text-align:center;color:var(--muted)}@media(max-width:780px){.topbar{padding:0 12px}.search{width:46vw}.layout{display:block;padding:14px 10px 50px}nav{position:static;max-height:none;margin-bottom:18px;columns:2}nav strong{column-span:all}article{padding:22px 16px}.controls{grid-template-columns:1fr}}
@@ -662,7 +1150,7 @@ index 0000000..5cc47f8
 +<div class="layout"><aside><nav id="toc"><strong>目录</strong></nav><div class="builder"><h2>连接检查命令</h2><div class="controls"><label>服务器地址<input id="host" value="127.0.0.1"></label><label>端口<input id="port" value="8080" inputmode="numeric"></label></div><div class="highlight"><button class="copy" data-target="generated">复制</button><pre id="generated">curl http://127.0.0.1:8080/healthz</pre></div></div></aside><main><div class="tabs" id="tabs"></div><article id="doc"><div align="center" dir="auto">
 +<h1 dir="auto">ForumDesk</h1>
 +<p dir="auto"><strong>把 Telegram 私聊和网页客服统一接入独立 Forum Topic。</strong></p>
-+<p dir="auto"><a href="README_EN.md">English</a> · <a href="README.html">交互式文档</a> · <a href="API.html">Web API</a> · <a href="openapi.json">OpenAPI</a></p>
++<p dir="auto"><a href="README_EN.md">English</a> · <a href="API.md">Web API</a> · <a href="examples/web-client.md">网页接入示例</a> · <a href="README.html">交互式文档</a></p>
 +<p dir="auto"><a href="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml"><img src="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg" alt="Docker Build" style="max-width: 100%;"></a><br>
 +<a href="go.mod"><img src="https://camo.githubusercontent.com/42a8119239952bdf2ce6b26d1b1c896936c9f84e80b36c23fa133857bd2a0cd2/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f476f2d312e32332d3030414444383f6c6f676f3d676f266c6f676f436f6c6f723d7768697465" alt="Go 1.23" data-canonical-src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&amp;logoColor=white" style="max-width: 100%;"></a><br>
 +<a href="https://github.com/paipaiio/telegram-customer-service-bot/pkgs/container/telegram-customer-service-bot"><img src="https://camo.githubusercontent.com/bc0a6ede27105896d552ebdf5ba0f1226767476406982486344b0441381d3ff9/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f474843522d6d756c74692d2d617263682d3234393645443f6c6f676f3d646f636b6572266c6f676f436f6c6f723d7768697465" alt="GHCR" data-canonical-src="https://img.shields.io/badge/GHCR-multi--arch-2496ED?logo=docker&amp;logoColor=white" style="max-width: 100%;"></a><br>
@@ -711,7 +1199,7 @@ index 0000000..5cc47f8
 +<p dir="auto">Telegram 的 <code class="notranslate">protect_content</code> 主要限制转发与保存；截图表现由客户端和操作系统决定。该参数只影响启用后新发送的消息。</p>
 +</blockquote>
 +<h2 dir="auto">工作原理</h2>
-+<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="30c53f4e-0a9a-47e3-8af0-33cd6c3b9781" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
++<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="7e78c280-03d4-42fc-8eed-097ab5d43f38" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
 +  <div class="js-render-enrichment-target" data-json="{&quot;data&quot;:&quot;flowchart LR\n    TG[Telegram 私聊用户] --&gt; BOT[ForumDesk Bot]\n    WEB[网页访客] --&gt; API[ForumDesk Web API]\n    API --&gt; BOT\n    BOT --&gt; TOPIC[私有超级群 Topic]\n    TOPIC --&gt; ADMIN[管理员]\n    TOPIC --&gt; STAFF[技术 / 商务]\n    ADMIN --&gt; BOT\n    STAFF --&gt;|管理员授权后| BOT\n    BOT --&gt; TG\n    BOT --&gt; API\n    API --&gt; WEB\n&quot;}" data-plain="flowchart LR
 +    TG[Telegram 私聊用户] --&gt; BOT[ForumDesk Bot]
 +    WEB[网页访客] --&gt; API[ForumDesk Web API]
@@ -845,9 +1333,11 @@ index 0000000..5cc47f8
 +</table></markdown-accessiblity-table>
 +<p dir="auto">推荐接入方式：浏览器请求业务系统自己的同域后端，业务后端通过内网调用 ForumDesk。这样集成密钥始终留在服务器端。</p>
 +<ul dir="auto">
++<li><a href="API.md">Web API 文档</a></li>
 +<li><a href="API.html">交互式 API 文档</a></li>
 +<li><a href="openapi.json">OpenAPI 3.1</a></li>
-+<li><a href="examples/web-client.html">浏览器接入示例</a></li>
++<li><a href="examples/web-client.md">网页客户端接入说明</a></li>
++<li><a href="examples/web-client.html">可运行网页示例</a></li>
 +</ul>
 +<h2 dir="auto">管理员命令</h2>
 +<markdown-accessiblity-table><table role="table">
@@ -918,6 +1408,7 @@ index 0000000..5cc47f8
 +internal/telegram/   Telegram Bot API 客户端
 +internal/webapi/     网页客服 REST API
 +examples/            网页接入示例
++API.md               默认 Web API 文档
 +API.html             交互式 API 文档
 +openapi.json         OpenAPI 3.1 规范
 +</code></pre>
@@ -951,17 +1442,17 @@ index 0000000..5cc47f8
 \ No newline at end of file
 diff --git a/README.md b/README.md
 new file mode 100644
-index 0000000..426f4c2
+index 0000000..b9f7acb
 --- /dev/null
 +++ b/README.md
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,260 @@
 +<div align="center">
 +
 +# ForumDesk
 +
 +**把 Telegram 私聊和网页客服统一接入独立 Forum Topic。**
 +
-+[English](README_EN.md) · [交互式文档](README.html) · [Web API](API.html) · [OpenAPI](openapi.json)
++[English](README_EN.md) · [Web API](API.md) · [网页接入示例](examples/web-client.md) · [交互式文档](README.html)
 +
 +[![Docker Build](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg)](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml)
 +[![Go 1.23](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](go.mod)
@@ -1139,9 +1630,11 @@ index 0000000..426f4c2
 +
 +推荐接入方式：浏览器请求业务系统自己的同域后端，业务后端通过内网调用 ForumDesk。这样集成密钥始终留在服务器端。
 +
++- [Web API 文档](API.md)
 +- [交互式 API 文档](API.html)
 +- [OpenAPI 3.1](openapi.json)
-+- [浏览器接入示例](examples/web-client.html)
++- [网页客户端接入说明](examples/web-client.md)
++- [可运行网页示例](examples/web-client.html)
 +
 +## 管理员命令
 +
@@ -1189,6 +1682,7 @@ index 0000000..426f4c2
 +internal/telegram/   Telegram Bot API 客户端
 +internal/webapi/     网页客服 REST API
 +examples/            网页接入示例
++API.md               默认 Web API 文档
 +API.html             交互式 API 文档
 +openapi.json         OpenAPI 3.1 规范
 +```
@@ -1214,14 +1708,15 @@ index 0000000..426f4c2
 +本项目使用 [CC BY-NC-SA 4.0](LICENSE)：允许署名、非商业使用、修改和分发，衍生作品需要使用相同许可方式。
 diff --git a/README_EN.html b/README_EN.html
 new file mode 100644
-index 0000000..fb2b254
+index 0000000..e8714e0
 --- /dev/null
 +++ b/README_EN.html
-@@ -0,0 +1,300 @@
+@@ -0,0 +1,304 @@
 +<!doctype html>
 +<html lang="en">
 +<head>
 +<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++<link rel="alternate" type="text/markdown" href="README_EN.md" title="Markdown source">
 +<title>ForumDesk Documentation</title>
 +<style>
 +:root{--bg:#f6f8fa;--paper:#fff;--text:#1f2328;--muted:#59636e;--line:#d0d7de;--accent:#0969da;--code:#f6f8fa;--ok:#1a7f37}@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--paper:#161b22;--text:#e6edf3;--muted:#8d96a0;--line:#30363d;--accent:#58a6ff;--code:#0d1117;--ok:#3fb950}}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}.topbar{position:sticky;top:0;z-index:20;height:58px;display:flex;align-items:center;gap:14px;padding:0 22px;background:color-mix(in srgb,var(--paper) 94%,transparent);border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}.brand{font-weight:700}.topbar a{color:var(--accent);text-decoration:none}.search{margin-left:auto;width:min(320px,40vw);padding:8px 11px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}.layout{display:grid;grid-template-columns:230px minmax(0,900px);gap:34px;max-width:1210px;margin:0 auto;padding:28px 20px 72px}nav{position:sticky;top:82px;align-self:start;max-height:calc(100vh - 105px);overflow:auto}nav strong{display:block;margin-bottom:10px}nav a{display:block;padding:5px 9px;border-left:2px solid var(--line);color:var(--muted);text-decoration:none}nav a:hover,nav a.active{border-color:var(--accent);color:var(--accent)}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}.tabs a{padding:6px 10px;border:1px solid var(--line);border-radius:6px;color:var(--accent);text-decoration:none;background:var(--paper)}main{min-width:0}article{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:34px 42px}section{padding-top:10px;scroll-margin-top:74px}h1{font-size:2.25rem;margin:.1em 0}h2{font-size:1.55rem;border-bottom:1px solid var(--line);padding-bottom:.32em;margin-top:1.8em}h3{font-size:1.15rem;margin-top:1.5em}a{color:var(--accent)}img{max-width:100%}table{width:100%;border-collapse:collapse;display:block;overflow:auto}th,td{padding:8px 11px;border:1px solid var(--line);text-align:left}tr:nth-child(2n){background:var(--bg)}blockquote{margin:16px 0;padding:8px 14px;border-left:4px solid var(--accent);color:var(--muted);background:var(--bg)}.highlight,pre{position:relative;background:var(--code)!important;border:1px solid var(--line);border-radius:6px;overflow:auto}pre{padding:16px!important}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}p code,li code,td code{padding:.12em .32em;border-radius:4px;background:var(--code)}.copy{position:absolute;right:7px;top:7px;z-index:3;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--accent);cursor:pointer}.builder{margin-top:20px;padding:18px;background:var(--paper);border:1px solid var(--line);border-radius:8px}.builder h2{margin:0 0 12px;font-size:1.1rem;border:0}.controls{display:grid;grid-template-columns:1fr 120px;gap:10px}.controls label{color:var(--muted);font-size:13px}.controls input{display:block;width:100%;padding:8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--text)}.builder pre{margin-bottom:0}.empty{display:none;padding:30px;text-align:center;color:var(--muted)}@media(max-width:780px){.topbar{padding:0 12px}.search{width:46vw}.layout{display:block;padding:14px 10px 50px}nav{position:static;max-height:none;margin-bottom:18px;columns:2}nav strong{column-span:all}article{padding:22px 16px}.controls{grid-template-columns:1fr}}
@@ -1232,7 +1727,7 @@ index 0000000..fb2b254
 +<div class="layout"><aside><nav id="toc"><strong>Contents</strong></nav><div class="builder"><h2>Health-check command</h2><div class="controls"><label>Server host<input id="host" value="127.0.0.1"></label><label>Port<input id="port" value="8080" inputmode="numeric"></label></div><div class="highlight"><button class="copy" data-target="generated">Copy</button><pre id="generated">curl http://127.0.0.1:8080/healthz</pre></div></div></aside><main><div class="tabs" id="tabs"></div><article id="doc"><div align="center" dir="auto">
 +<h1 dir="auto">ForumDesk</h1>
 +<p dir="auto"><strong>Bridge Telegram DMs and website support chats into dedicated forum topics.</strong></p>
-+<p dir="auto"><a href="README.md">简体中文</a> · <a href="README_EN.html">Interactive docs</a> · <a href="API.html">Web API</a> · <a href="openapi.json">OpenAPI</a></p>
++<p dir="auto"><a href="README.md">简体中文</a> · <a href="API_EN.md">Web API</a> · <a href="examples/web-client_EN.md">Browser integration</a> · <a href="README_EN.html">Interactive docs</a></p>
 +<p dir="auto"><a href="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml"><img src="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg" alt="Docker Build" style="max-width: 100%;"></a><br>
 +<a href="go.mod"><img src="https://camo.githubusercontent.com/42a8119239952bdf2ce6b26d1b1c896936c9f84e80b36c23fa133857bd2a0cd2/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f476f2d312e32332d3030414444383f6c6f676f3d676f266c6f676f436f6c6f723d7768697465" alt="Go 1.23" data-canonical-src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&amp;logoColor=white" style="max-width: 100%;"></a><br>
 +<a href="https://github.com/paipaiio/telegram-customer-service-bot/pkgs/container/telegram-customer-service-bot"><img src="https://camo.githubusercontent.com/bc0a6ede27105896d552ebdf5ba0f1226767476406982486344b0441381d3ff9/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f474843522d6d756c74692d2d617263682d3234393645443f6c6f676f3d646f636b6572266c6f676f436f6c6f723d7768697465" alt="GHCR" data-canonical-src="https://img.shields.io/badge/GHCR-multi--arch-2496ED?logo=docker&amp;logoColor=white" style="max-width: 100%;"></a><br>
@@ -1281,7 +1776,7 @@ index 0000000..fb2b254
 +<p dir="auto">Telegram <code class="notranslate">protect_content</code> primarily restricts forwarding and saving. Screenshot behavior depends on the client and operating system. The flag applies only to messages sent after it is enabled.</p>
 +</blockquote>
 +<h2 dir="auto">Architecture</h2>
-+<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="592df6f8-40d3-40f1-8589-bba3edb58bfc" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
++<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="7b5c0a41-b332-406b-9817-3dbe05ed4e02" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
 +  <div class="js-render-enrichment-target" data-json="{&quot;data&quot;:&quot;flowchart LR\n    TG[Telegram user] --&gt; BOT[ForumDesk Bot]\n    WEB[Website visitor] --&gt; API[ForumDesk Web API]\n    API --&gt; BOT\n    BOT --&gt; TOPIC[Private supergroup topic]\n    TOPIC --&gt; ADMIN[Administrator]\n    TOPIC --&gt; STAFF[Technical / Sales staff]\n    ADMIN --&gt; BOT\n    STAFF --&gt;|After approval| BOT\n    BOT --&gt; TG\n    BOT --&gt; API\n    API --&gt; WEB\n&quot;}" data-plain="flowchart LR
 +    TG[Telegram user] --&gt; BOT[ForumDesk Bot]
 +    WEB[Website visitor] --&gt; API[ForumDesk Web API]
@@ -1415,9 +1910,11 @@ index 0000000..fb2b254
 +</table></markdown-accessiblity-table>
 +<p dir="auto">The recommended integration keeps the browser on your application's origin. Your application backend calls ForumDesk over a private network, so the integration key remains server-side.</p>
 +<ul dir="auto">
++<li><a href="API_EN.md">Web API documentation</a></li>
 +<li><a href="API.html">Interactive API documentation</a></li>
 +<li><a href="openapi.json">OpenAPI 3.1 specification</a></li>
-+<li><a href="examples/web-client.html">Browser integration example</a></li>
++<li><a href="examples/web-client_EN.md">Browser client guide</a></li>
++<li><a href="examples/web-client.html">Runnable browser example</a></li>
 +</ul>
 +<h2 dir="auto">Administrator Commands</h2>
 +<markdown-accessiblity-table><table role="table">
@@ -1488,6 +1985,7 @@ index 0000000..fb2b254
 +internal/telegram/   Telegram Bot API client
 +internal/webapi/     web support REST API
 +examples/            browser integration example
++API_EN.md            default Web API documentation
 +API.html             interactive API documentation
 +openapi.json         OpenAPI 3.1 specification
 +</code></pre>
@@ -1521,17 +2019,17 @@ index 0000000..fb2b254
 \ No newline at end of file
 diff --git a/README_EN.md b/README_EN.md
 new file mode 100644
-index 0000000..3e7abac
+index 0000000..2d95cca
 --- /dev/null
 +++ b/README_EN.md
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,260 @@
 +<div align="center">
 +
 +# ForumDesk
 +
 +**Bridge Telegram DMs and website support chats into dedicated forum topics.**
 +
-+[简体中文](README.md) · [Interactive docs](README_EN.html) · [Web API](API.html) · [OpenAPI](openapi.json)
++[简体中文](README.md) · [Web API](API_EN.md) · [Browser integration](examples/web-client_EN.md) · [Interactive docs](README_EN.html)
 +
 +[![Docker Build](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg)](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml)
 +[![Go 1.23](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](go.mod)
@@ -1709,9 +2207,11 @@ index 0000000..3e7abac
 +
 +The recommended integration keeps the browser on your application's origin. Your application backend calls ForumDesk over a private network, so the integration key remains server-side.
 +
++- [Web API documentation](API_EN.md)
 +- [Interactive API documentation](API.html)
 +- [OpenAPI 3.1 specification](openapi.json)
-+- [Browser integration example](examples/web-client.html)
++- [Browser client guide](examples/web-client_EN.md)
++- [Runnable browser example](examples/web-client.html)
 +
 +## Administrator Commands
 +
@@ -1759,6 +2259,7 @@ index 0000000..3e7abac
 +internal/telegram/   Telegram Bot API client
 +internal/webapi/     web support REST API
 +examples/            browser integration example
++API_EN.md            default Web API documentation
 +API.html             interactive API documentation
 +openapi.json         OpenAPI 3.1 specification
 +```
@@ -1874,17 +2375,77 @@ index 0000000..47a4be3
 +  forumdesk-data:
 diff --git a/examples/web-client.html b/examples/web-client.html
 new file mode 100644
-index 0000000..a0dd524
+index 0000000..9dea8b8
 --- /dev/null
 +++ b/examples/web-client.html
 @@ -0,0 +1,7 @@
 +<!doctype html>
-+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ForumDesk 网页客服示例</title>
++<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="alternate" type="text/markdown" href="web-client.md" title="Markdown source"><title>ForumDesk 网页客服示例</title>
 +<style>
 +body{margin:0;background:#091322;color:#ecf5ff;font:15px system-ui}.chat{max-width:520px;margin:30px auto;border:1px solid #29415f;border-radius:18px;overflow:hidden;background:#101e31}.head{padding:16px 18px;background:#173252;font-weight:700}.setup,.send{display:grid;gap:8px;padding:14px}.setup{grid-template-columns:1fr}input,button{border:1px solid #365778;border-radius:9px;padding:11px;background:#0a1727;color:#fff}button{background:#2377c9;cursor:pointer}.messages{height:380px;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:9px}.bubble{max-width:82%;padding:10px 12px;border-radius:13px;background:#20344d;cursor:pointer}.staff{align-self:flex-start}.customer{align-self:flex-end;background:#21659b}.quote{border-left:3px solid #72b8ee;padding:4px 7px;margin-bottom:5px;color:#b8d7ed;font-size:12px}.send{grid-template-columns:1fr auto}.replying{display:none;margin:0 14px;padding:8px 10px;background:#162a40;border-radius:8px;color:#b8d7ed}.replying.on{display:flex;justify-content:space-between}.cancel{border:0;background:transparent;padding:0;color:#fff}.hint{color:#9eb2ca;font-size:12px;padding:0 14px 12px}
-+</style></head><body><div class="chat"><div class="head">ForumDesk 网页客服</div><div class="setup"><input id="base" placeholder="API Base URL"><input id="conversation" placeholder="Conversation ID"><input id="token" type="password" placeholder="Visitor Token"><button id="connect">连接</button></div><div class="messages" id="messages"></div><div class="replying" id="replying"><span id="reply-label"></span><button class="cancel" id="cancel-reply">×</button></div><div class="send"><input id="text" maxlength="4000" placeholder="输入消息"><button id="send">发送</button></div><div class="hint">点击一条消息可引用回复。示例页只保存在当前内存；正式网站由后端注入会话 ID 和访客 Token。</div></div><script>
++</style></head><body><div class="chat"><div class="head">ForumDesk 网页客服 · <a href="web-client.md" style="color:#9ed0ff">接入说明</a></div><div class="setup"><input id="base" placeholder="API Base URL"><input id="conversation" placeholder="Conversation ID"><input id="token" type="password" placeholder="Visitor Token"><button id="connect">连接</button></div><div class="messages" id="messages"></div><div class="replying" id="replying"><span id="reply-label"></span><button class="cancel" id="cancel-reply">×</button></div><div class="send"><input id="text" maxlength="4000" placeholder="输入消息"><button id="send">发送</button></div><div class="hint">点击一条消息可引用回复。示例页只保存在当前内存；正式网站由后端注入会话 ID 和访客 Token。</div></div><script>
 +let cursor=0,timer,replyTo='';const byId=new Map(),messageData=new Map();const $=id=>document.getElementById(id);function config(){return{base:$('base').value.replace(/\/$/,''),id:$('conversation').value,token:$('token').value}}function selectReply(m){replyTo=m.id;$('reply-label').textContent=`回复：${m.text.slice(0,60)}`;$('replying').classList.add('on');$('text').focus()}function clearReply(){replyTo='';$('replying').classList.remove('on')}function render(m){if(m.event==='message_hidden'){byId.get(m.target_message_id)?.remove();byId.delete(m.target_message_id);messageData.delete(m.target_message_id);if(replyTo===m.target_message_id)clearReply();return}const el=document.createElement('div');el.className=`bubble ${m.direction}`;if(m.reply_to_message_id){const quoted=messageData.get(m.reply_to_message_id);const q=document.createElement('div');q.className='quote';q.textContent=quoted?quoted.text.slice(0,80):'引用消息';el.append(q)}const text=document.createElement('div');text.textContent=(m.staff_name?`${m.staff_name}: `:'')+m.text;el.append(text);el.onclick=()=>selectReply(m);byId.set(m.id,el);messageData.set(m.id,m);$('messages').append(el);$('messages').scrollTop=$('messages').scrollHeight}async function poll(){const c=config();if(!c.base||!c.id||!c.token)return;const r=await fetch(`${c.base}/api/v1/conversations/${c.id}/messages?after=${cursor}&limit=50`,{headers:{Authorization:`Bearer ${c.token}`}});if(!r.ok)return;const p=await r.json();p.data.forEach(render);cursor=p.meta.next_cursor}function start(){clearInterval(timer);cursor=0;$('messages').replaceChildren();byId.clear();messageData.clear();clearReply();poll();timer=setInterval(poll,2000)}$('connect').onclick=start;$('cancel-reply').onclick=clearReply;$('send').onclick=async()=>{const c=config(),text=$('text').value.trim();if(!text)return;const body={text};if(replyTo)body.reply_to_message_id=replyTo;const r=await fetch(`${c.base}/api/v1/conversations/${c.id}/messages`,{method:'POST',headers:{Authorization:`Bearer ${c.token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.ok){$('text').value='';clearReply();await poll()}};$('text').addEventListener('keydown',e=>{if(e.key==='Enter')$('send').click()});
 +</script></body></html>
+diff --git a/examples/web-client.md b/examples/web-client.md
+new file mode 100644
+index 0000000..ec8b60f
+--- /dev/null
++++ b/examples/web-client.md
+@@ -0,0 +1,24 @@
++# ForumDesk 网页客户端示例
++
++[English](web-client_EN.md) · [运行示例](web-client.html) · [Web API 文档](../API.md) · [项目首页](../README.md)
++
++`web-client.html` 是一个无构建步骤的浏览器示例，用于验证会话连接、增量轮询、消息发送、引用回复和 `message_hidden` 事件。
++
++## 使用方法
++
++1. 由业务后端调用 `POST /api/v1/conversations` 创建会话。
++2. 打开 `web-client.html`。
++3. 填写 API Base URL、Conversation ID 和 Visitor Token。
++4. 点击“连接”，发送消息并在 Telegram Topic 中回复。
++
++生产环境推荐让浏览器请求业务系统自己的同域后端，再由业务后端通过 Tailscale 等私有网络调用 ForumDesk。不要把 `WEB_API_KEY` 写入网页。
++
++## 页面配置
++
++| 输入项 | 示例 |
++|---|---|
++| API Base URL | `http://100.64.0.2:8980` |
++| Conversation ID | `wc_...` |
++| Visitor Token | `wv_...` |
++
++点击已有消息即可建立引用，发送请求时会附带 `reply_to_message_id`。收到 `message_hidden` 后，页面会移除 `target_message_id` 对应的消息。
+diff --git a/examples/web-client_EN.md b/examples/web-client_EN.md
+new file mode 100644
+index 0000000..6a6d8e6
+--- /dev/null
++++ b/examples/web-client_EN.md
+@@ -0,0 +1,24 @@
++# ForumDesk Browser Client Example
++
++[简体中文](web-client.md) · [Run the example](web-client.html) · [Web API documentation](../API_EN.md) · [Project README](../README_EN.md)
++
++`web-client.html` is a build-free browser example for testing conversation connection, cursor polling, message delivery, quoted replies, and `message_hidden` events.
++
++## Usage
++
++1. Create a conversation through `POST /api/v1/conversations` from your application backend.
++2. Open `web-client.html`.
++3. Enter the API Base URL, Conversation ID, and Visitor Token.
++4. Connect, send a message, and reply from the matching Telegram topic.
++
++For production, keep the browser on your application's origin and proxy ForumDesk through your backend over Tailscale or another private network. Keep `WEB_API_KEY` out of browser code.
++
++## Page settings
++
++| Field | Example |
++|---|---|
++| API Base URL | `http://100.64.0.2:8980` |
++| Conversation ID | `wc_...` |
++| Visitor Token | `wv_...` |
++
++Click an existing message to set `reply_to_message_id`. When a `message_hidden` event arrives, remove the rendered message identified by `target_message_id`.
 diff --git a/go.mod b/go.mod
 new file mode 100644
 index 0000000..3911c06
@@ -6045,7 +6606,7 @@ index 0000000..ba187cd
 +}
 diff --git a/scripts/rollback.sh b/scripts/rollback.sh
 new file mode 100755
-index 0000000..5808398
+index 0000000..ed90d62
 --- /dev/null
 +++ b/scripts/rollback.sh
 @@ -0,0 +1,8 @@
@@ -6055,5 +6616,5 @@ index 0000000..5808398
 +ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 +cd "$ROOT"
 +
-+rm -rf .github cmd internal dist artifacts examples scripts API.html Dockerfile LICENSE Makefile README.html README_EN.html README.md README_EN.md compose.yaml go.mod go.sum openapi.json .env.example .gitignore .dockerignore
++rm -rf .github cmd internal dist artifacts examples scripts API.md API_EN.md API.html Dockerfile LICENSE Makefile README.html README_EN.html README.md README_EN.md compose.yaml go.mod go.sum openapi.json .env.example .gitignore .dockerignore
 +printf 'ForumDesk generated files removed. Git metadata was preserved.\n'

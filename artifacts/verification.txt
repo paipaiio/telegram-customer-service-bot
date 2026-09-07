@@ -704,3 +704,51 @@ $ ./scripts/rollback.sh
 ForumDesk generated files removed. Git metadata was preserved.
 EXIT_STATUS=0
 PATCH_SHA256=38f2e56c29c0117dd862bcb6839fdbaf9383803cfae2728506b6d2f9bb579c4a
+
+=== MARKDOWN-FIRST DOCUMENTATION VERIFICATION (2026-09-07) ===
+$ validate every HTML alternate Markdown source and every local link
+API.html -> API.md: OK
+README.html -> README.md: OK
+README_EN.html -> README_EN.md: OK
+examples/web-client.html -> examples/web-client.md: OK
+All local HTML links: OK
+All Markdown local links: OK
+EXIT_STATUS=0
+
+$ node --check extracted inline scripts
+EXIT_STATUS=0
+
+$ git diff --check
+EXIT_STATUS=0
+
+$ go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	(cached)
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	(cached)
+ok  	forumdesk/internal/telegram	(cached)
+ok  	forumdesk/internal/webapi	(cached)
+EXIT_STATUS=0
+
+CONFIRMED_BEHAVIOR=Every standalone HTML file declares and visibly links its Markdown source; repository navigation defaults to Markdown API and browser integration guides; Chinese and English Web API guides are separate files.
+
+=== MARKDOWN-FIRST PATCH + ROLLBACK VERIFICATION ===
+$ git apply forumdesk.patch && validate HTML-to-Markdown pairs
+README.html -> README.md: OK
+README_EN.html -> README_EN.md: OK
+API.html -> API.md: OK
+examples/web-client.html -> web-client.md: OK
+$ go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.010s
+ok  	forumdesk/internal/bot	0.012s
+ok  	forumdesk/internal/config	0.008s
+ok  	forumdesk/internal/store	0.018s
+ok  	forumdesk/internal/telegram	0.018s
+ok  	forumdesk/internal/webapi	0.010s
+EXIT_STATUS=0
+$ ./scripts/rollback.sh
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+PATCH_SHA256=9bfa561967b9280b0c7a800668ae120788ac12232b238facc864db1422479e0a

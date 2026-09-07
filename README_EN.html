@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="alternate" type="text/markdown" href="README_EN.md" title="Markdown source">
 <title>ForumDesk Documentation</title>
 <style>
 :root{--bg:#f6f8fa;--paper:#fff;--text:#1f2328;--muted:#59636e;--line:#d0d7de;--accent:#0969da;--code:#f6f8fa;--ok:#1a7f37}@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--paper:#161b22;--text:#e6edf3;--muted:#8d96a0;--line:#30363d;--accent:#58a6ff;--code:#0d1117;--ok:#3fb950}}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}.topbar{position:sticky;top:0;z-index:20;height:58px;display:flex;align-items:center;gap:14px;padding:0 22px;background:color-mix(in srgb,var(--paper) 94%,transparent);border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}.brand{font-weight:700}.topbar a{color:var(--accent);text-decoration:none}.search{margin-left:auto;width:min(320px,40vw);padding:8px 11px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}.layout{display:grid;grid-template-columns:230px minmax(0,900px);gap:34px;max-width:1210px;margin:0 auto;padding:28px 20px 72px}nav{position:sticky;top:82px;align-self:start;max-height:calc(100vh - 105px);overflow:auto}nav strong{display:block;margin-bottom:10px}nav a{display:block;padding:5px 9px;border-left:2px solid var(--line);color:var(--muted);text-decoration:none}nav a:hover,nav a.active{border-color:var(--accent);color:var(--accent)}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}.tabs a{padding:6px 10px;border:1px solid var(--line);border-radius:6px;color:var(--accent);text-decoration:none;background:var(--paper)}main{min-width:0}article{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:34px 42px}section{padding-top:10px;scroll-margin-top:74px}h1{font-size:2.25rem;margin:.1em 0}h2{font-size:1.55rem;border-bottom:1px solid var(--line);padding-bottom:.32em;margin-top:1.8em}h3{font-size:1.15rem;margin-top:1.5em}a{color:var(--accent)}img{max-width:100%}table{width:100%;border-collapse:collapse;display:block;overflow:auto}th,td{padding:8px 11px;border:1px solid var(--line);text-align:left}tr:nth-child(2n){background:var(--bg)}blockquote{margin:16px 0;padding:8px 14px;border-left:4px solid var(--accent);color:var(--muted);background:var(--bg)}.highlight,pre{position:relative;background:var(--code)!important;border:1px solid var(--line);border-radius:6px;overflow:auto}pre{padding:16px!important}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}p code,li code,td code{padding:.12em .32em;border-radius:4px;background:var(--code)}.copy{position:absolute;right:7px;top:7px;z-index:3;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--accent);cursor:pointer}.builder{margin-top:20px;padding:18px;background:var(--paper);border:1px solid var(--line);border-radius:8px}.builder h2{margin:0 0 12px;font-size:1.1rem;border:0}.controls{display:grid;grid-template-columns:1fr 120px;gap:10px}.controls label{color:var(--muted);font-size:13px}.controls input{display:block;width:100%;padding:8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--text)}.builder pre{margin-bottom:0}.empty{display:none;padding:30px;text-align:center;color:var(--muted)}@media(max-width:780px){.topbar{padding:0 12px}.search{width:46vw}.layout{display:block;padding:14px 10px 50px}nav{position:static;max-height:none;margin-bottom:18px;columns:2}nav strong{column-span:all}article{padding:22px 16px}.controls{grid-template-columns:1fr}}
@@ -12,7 +13,7 @@
 <div class="layout"><aside><nav id="toc"><strong>Contents</strong></nav><div class="builder"><h2>Health-check command</h2><div class="controls"><label>Server host<input id="host" value="127.0.0.1"></label><label>Port<input id="port" value="8080" inputmode="numeric"></label></div><div class="highlight"><button class="copy" data-target="generated">Copy</button><pre id="generated">curl http://127.0.0.1:8080/healthz</pre></div></div></aside><main><div class="tabs" id="tabs"></div><article id="doc"><div align="center" dir="auto">
 <h1 dir="auto">ForumDesk</h1>
 <p dir="auto"><strong>Bridge Telegram DMs and website support chats into dedicated forum topics.</strong></p>
-<p dir="auto"><a href="README.md">简体中文</a> · <a href="README_EN.html">Interactive docs</a> · <a href="API.html">Web API</a> · <a href="openapi.json">OpenAPI</a></p>
+<p dir="auto"><a href="README.md">简体中文</a> · <a href="API_EN.md">Web API</a> · <a href="examples/web-client_EN.md">Browser integration</a> · <a href="README_EN.html">Interactive docs</a></p>
 <p dir="auto"><a href="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml"><img src="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg" alt="Docker Build" style="max-width: 100%;"></a><br>
 <a href="go.mod"><img src="https://camo.githubusercontent.com/42a8119239952bdf2ce6b26d1b1c896936c9f84e80b36c23fa133857bd2a0cd2/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f476f2d312e32332d3030414444383f6c6f676f3d676f266c6f676f436f6c6f723d7768697465" alt="Go 1.23" data-canonical-src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&amp;logoColor=white" style="max-width: 100%;"></a><br>
 <a href="https://github.com/paipaiio/telegram-customer-service-bot/pkgs/container/telegram-customer-service-bot"><img src="https://camo.githubusercontent.com/bc0a6ede27105896d552ebdf5ba0f1226767476406982486344b0441381d3ff9/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f474843522d6d756c74692d2d617263682d3234393645443f6c6f676f3d646f636b6572266c6f676f436f6c6f723d7768697465" alt="GHCR" data-canonical-src="https://img.shields.io/badge/GHCR-multi--arch-2496ED?logo=docker&amp;logoColor=white" style="max-width: 100%;"></a><br>
@@ -61,7 +62,7 @@
 <p dir="auto">Telegram <code class="notranslate">protect_content</code> primarily restricts forwarding and saving. Screenshot behavior depends on the client and operating system. The flag applies only to messages sent after it is enabled.</p>
 </blockquote>
 <h2 dir="auto">Architecture</h2>
-<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="592df6f8-40d3-40f1-8589-bba3edb58bfc" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
+<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="7b5c0a41-b332-406b-9817-3dbe05ed4e02" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
   <div class="js-render-enrichment-target" data-json="{&quot;data&quot;:&quot;flowchart LR\n    TG[Telegram user] --&gt; BOT[ForumDesk Bot]\n    WEB[Website visitor] --&gt; API[ForumDesk Web API]\n    API --&gt; BOT\n    BOT --&gt; TOPIC[Private supergroup topic]\n    TOPIC --&gt; ADMIN[Administrator]\n    TOPIC --&gt; STAFF[Technical / Sales staff]\n    ADMIN --&gt; BOT\n    STAFF --&gt;|After approval| BOT\n    BOT --&gt; TG\n    BOT --&gt; API\n    API --&gt; WEB\n&quot;}" data-plain="flowchart LR
     TG[Telegram user] --&gt; BOT[ForumDesk Bot]
     WEB[Website visitor] --&gt; API[ForumDesk Web API]
@@ -195,9 +196,11 @@ make coverage</pre></div>
 </table></markdown-accessiblity-table>
 <p dir="auto">The recommended integration keeps the browser on your application's origin. Your application backend calls ForumDesk over a private network, so the integration key remains server-side.</p>
 <ul dir="auto">
+<li><a href="API_EN.md">Web API documentation</a></li>
 <li><a href="API.html">Interactive API documentation</a></li>
 <li><a href="openapi.json">OpenAPI 3.1 specification</a></li>
-<li><a href="examples/web-client.html">Browser integration example</a></li>
+<li><a href="examples/web-client_EN.md">Browser client guide</a></li>
+<li><a href="examples/web-client.html">Runnable browser example</a></li>
 </ul>
 <h2 dir="auto">Administrator Commands</h2>
 <markdown-accessiblity-table><table role="table">
@@ -268,6 +271,7 @@ internal/store/      atomic JSON persistence
 internal/telegram/   Telegram Bot API client
 internal/webapi/     web support REST API
 examples/            browser integration example
+API_EN.md            default Web API documentation
 API.html             interactive API documentation
 openapi.json         OpenAPI 3.1 specification
 </code></pre>
