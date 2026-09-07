@@ -659,3 +659,48 @@ ForumDesk generated files removed. Git metadata was preserved.
 ROLLBACK_CONTENT_CHECK=empty_except_.git_and_external_patch
 EXIT_STATUS=0
 PATCH_SHA256=402b8f8848db6b8ef4afe6aa5703f90a8489e5207bf17793cf5f87bf27808155
+
+=== SPLIT CHINESE / ENGLISH README VERIFICATION (2026-09-07) ===
+$ python3 README language, HTML parse, and local-link validation
+README.html: parse and local links OK
+README_EN.html: parse and local links OK
+Markdown language split: OK
+EXIT_STATUS=0
+
+$ node --check extracted README scripts
+README.html JavaScript syntax: OK
+README_EN.html JavaScript syntax: OK
+EXIT_STATUS=0
+
+$ git diff --check
+EXIT_STATUS=0
+
+$ go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	(cached)
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	0.020s
+ok  	forumdesk/internal/telegram	(cached)
+ok  	forumdesk/internal/webapi	(cached)
+EXIT_STATUS=0
+
+CONFIRMED_BEHAVIOR=README.md contains Chinese project documentation, README_EN.md contains English project documentation, and each language has a standalone searchable HTML document with copy controls and a live health-check command builder.
+
+=== README PACKAGE + ROLLBACK VERIFICATION ===
+$ git apply forumdesk.patch && validate README.md, README_EN.md, README.html, README_EN.html
+README.html: patch parse OK
+README_EN.html: patch parse OK
+$ go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.011s
+ok  	forumdesk/internal/bot	0.012s
+ok  	forumdesk/internal/config	0.008s
+ok  	forumdesk/internal/store	0.020s
+ok  	forumdesk/internal/telegram	0.020s
+ok  	forumdesk/internal/webapi	0.012s
+EXIT_STATUS=0
+$ ./scripts/rollback.sh
+ForumDesk generated files removed. Git metadata was preserved.
+EXIT_STATUS=0
+PATCH_SHA256=38f2e56c29c0117dd862bcb6839fdbaf9383803cfae2728506b6d2f9bb579c4a

@@ -1,58 +1,154 @@
-# ForumDesk · Telegram 客服私聊中转 Bot / Telegram Customer Service Bot
+<div align="center">
 
-[English README](README_EN.md) | [图文文档 / Visual Docs](README.html)
+# ForumDesk
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+**把 Telegram 私聊和网页客服统一接入独立 Forum Topic。**
 
-**许可证 / License**: [CC BY-NC-SA 4.0](LICENSE) — 禁止商用。允许使用、修改、分发，但必须署名、非商用、衍生作品采用相同许可证。Commercial use is prohibited; you may use, modify, and distribute with attribution, non-commercially, under the same license.
+[English](README_EN.md) · [交互式文档](README.html) · [Web API](API.html) · [OpenAPI](openapi.json)
 
-一个自托管的 Telegram 客服机器人：把每位私聊用户放进私有超级群的独立 Topic（话题），客服在 Topic 里回复，Bot 自动双向中转。
+[![Docker Build](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg)](https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml)
+[![Go 1.23](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](go.mod)
+[![GHCR](https://img.shields.io/badge/GHCR-multi--arch-2496ED?logo=docker&logoColor=white)](https://github.com/paipaiio/telegram-customer-service-bot/pkgs/container/telegram-customer-service-bot)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](LICENSE)
 
-A self-hosted Telegram customer service bot: each private chat user gets a dedicated forum topic in a private supergroup. Agents reply inside the topic, and the bot relays messages both ways.
+</div>
 
----
+ForumDesk 是一个使用 Go 编写的自托管客服网关。Telegram 用户私聊 Bot，或网页访客通过 REST API 发起会话后，系统会在私有超级群中为每位客户创建独立 Topic。客服直接在 Topic 内协作，Bot 负责双向消息、引用、编辑、删除和可见性映射。
 
-## 功能特性 / Features
+## 为什么使用 ForumDesk
 
-- **单用户单 Topic / One topic per user** — 用户首次私聊自动创建专属 Topic 和资料卡；之后所有消息复用同一 Topic。First message auto-creates a dedicated topic with a profile card; later messages reuse it.
-- **双向消息中转 / Two-way relay** — 文本、图片、语音、视频、文件等消息双向复制。Relays text, photos, voice, video, documents, etc. in both directions.
-- **双向引用映射 / Quote mapping** — 客服在 Topic 引用历史消息，用户端引用对应副本；用户引用也映射回 Topic。Replies/quotes are mapped across both sides.
-- **双向编辑同步 / Edit sync** — 客服编辑直接修改用户端消息；用户编辑会在 Topic 引用原消息并追加新内容。Agent edits update the user's message in place; user edits are appended with a quote.
-- **双端删除与批量清理 / Two-side deletion & cleanup** — 回复消息发送 `/delete` 删除两端消息；`/clear` 清空双方对话并保留资料卡；`/clear_user` 仅清空用户端。`/delete` removes a message on both ends; `/clear` wipes both sides keeping the profile card; `/clear_user` clears the user side only.
-- **内容保护 / Content protection** — `/protect on` 后发出的消息禁止转发、保存与截图。`/protect on` marks outgoing messages with Telegram content protection.
-- **命令菜单 / Command menu** — 启动时自动注册 `setMyCommands`，管理员与用户看到不同菜单。Auto-registers scoped command menus on startup.
+传统转发 Bot 把所有客户消息混在一个聊天窗口里，消息量增加后容易串线。ForumDesk 使用 Telegram Forum Topic 作为工作区：
 
-## 工作流程 / How It Works
+- 一位客户对应一个 Topic，历史上下文天然隔离。
+- 管理员、技术和商务可在同一个 Topic 内协作。
+- 普通成员发言默认仅内部可见，管理员决定按人或按消息外发。
+- 同一个客服群同时承接 Telegram 私聊和网页客服。
+- 单个 Go 进程、JSON 持久化、零第三方 Go 依赖，适合小型自托管部署。
 
+## 功能
+
+### 会话与消息
+
+- 每位 Telegram 用户自动创建并复用独立 Topic。
+- 每个网页会话自动创建独立 Topic，并附带来源资料卡。
+- 支持文本、图片、语音、视频、文件等 Telegram 消息类型。
+- Telegram 双向引用映射；网页消息通过 `reply_to_message_id` 保留引用。
+- Telegram 客服编辑会同步修改用户端副本；Telegram 用户编辑会在 Topic 中引用原消息并追加变更。
+- `/delete` 双端删除单条消息。
+- `/clear` 清空双方对话，保留 Topic 和首条资料卡。
+- `/clear_user` 仅清空客户端，保留管理端历史。
+
+### 团队协作
+
+- 群管理员发言默认对客户可见。
+- 普通成员发言默认仅保留在 Topic 内。
+- `/allow_staff`、`/deny_staff` 按 Topic 控制成员自动外发权限。
+- `/show`、`/hide` 控制单条消息是否对客户可见。
+- `/staff` 查看当前 Topic 已授权成员。
+
+### 安全与部署
+
+- `/protect on` 为之后发送的 Telegram 消息启用内容保护。
+- Web API 使用集成密钥和会话级访客 Token 两层认证。
+- 访客 Token 仅保存 SHA-256 摘要。
+- 精确 CORS Origin、16 KiB 请求限制和每分钟速率限制。
+- JSON 数据原子写入，Docker Volume 持久化。
+- GitHub Actions 自动构建 GHCR `linux/amd64`、`linux/arm64` 镜像。
+
+> Telegram 的 `protect_content` 主要限制转发与保存；截图表现由客户端和操作系统决定。该参数只影响启用后新发送的消息。
+
+## 工作原理
+
+```mermaid
+flowchart LR
+    TG[Telegram 私聊用户] --> BOT[ForumDesk Bot]
+    WEB[网页访客] --> API[ForumDesk Web API]
+    API --> BOT
+    BOT --> TOPIC[私有超级群 Topic]
+    TOPIC --> ADMIN[管理员]
+    TOPIC --> STAFF[技术 / 商务]
+    ADMIN --> BOT
+    STAFF -->|管理员授权后| BOT
+    BOT --> TG
+    BOT --> API
+    API --> WEB
 ```
-Telegram 用户 User  →  ForumDesk Bot  →  客服群 Topic / Support Group Topic
-```
 
-- 用户 → 客服：所有私聊消息进入该用户的 Topic。User → Agent: every DM lands in the user's topic.
-- 客服 → 用户：管理员在 Topic 直接回复，Bot 按 Topic 映射发回用户。Agent → User: agents reply in the topic; the bot forwards to the mapped user.
+Topic 负责客服协作和历史展示，`forumdesk.json` 保存用户、Topic、消息、网页会话和成员权限映射。
 
-## 首次配置 / Setup
+## 快速开始
 
-1. 通过 @BotFather 创建 Bot 并取得 Token。Create a bot via @BotFather and get the token.
-2. 创建私有超级群，开启「话题 / Topics」。Create a private supergroup and enable Topics.
-3. 把 Bot 设为管理员，授予管理话题、发送消息、删除消息权限。Add the bot as admin with Manage Topics, Send Messages, Delete Messages.
-4. 复制配置并填入 Token 与群 ID。Copy the config and fill in token and group ID:
+### 1. 配置 Telegram
+
+1. 在 [@BotFather](https://t.me/BotFather) 创建 Bot 并取得 Token。
+2. 创建私有超级群并开启“话题”。
+3. 将 Bot 设为管理员，授予发送消息、删除消息和管理话题权限。
+4. 获取超级群 ID，格式通常为 `-100...`。
+
+### 2. 创建环境变量
 
 ```bash
 cp .env.example .env
-
-# 编辑 .env / edit .env
-BOT_TOKEN=123456789:YOUR_TOKEN
-SUPPORT_GROUP_ID=-1001234567890
-DATA_FILE=./data/forumdesk.json
 ```
 
-> Topic 没有独立头像，基础版会把用户头像作为 Topic 的第一张资料卡图片。
-> Topics have no avatar; the bot uses the user's avatar as the first profile-card image instead.
+编辑 `.env`：
 
-## 启动 / Run
+```dotenv
+BOT_TOKEN=123456789:YOUR_BOT_TOKEN
+SUPPORT_GROUP_ID=-1001234567890
+DATA_FILE=./data/forumdesk.json
+HTTP_ADDR=:8080
+WEB_API_KEY=replace-with-at-least-32-random-characters
+WEB_ALLOWED_ORIGINS=https://www.example.com
+WEB_RATE_LIMIT_PER_MINUTE=60
+```
 
-本机运行 / Local:
+生成 API 密钥：
+
+```bash
+openssl rand -hex 32
+```
+
+`WEB_API_KEY` 只放在网站后端；浏览器使用创建会话时返回的单会话 `visitor_token`。
+
+### 3. 使用 GHCR 镜像启动
+
+```yaml
+services:
+  forumdesk:
+    image: ghcr.io/paipaiio/telegram-customer-service-bot:latest
+    pull_policy: always
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - forumdesk-data:/app/data
+
+volumes:
+  forumdesk-data:
+```
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose logs -f forumdesk
+```
+
+健康检查：
+
+```bash
+curl http://127.0.0.1:8080/healthz
+```
+
+```json
+{"data":{"status":"ok"}}
+```
+
+## 从源码运行
+
+要求 Go 1.23 或更高版本：
 
 ```bash
 set -a
@@ -61,58 +157,101 @@ set +a
 go run ./cmd/forumdesk
 ```
 
-Docker Compose:
+质量检查：
 
 ```bash
-docker compose up -d --build
-docker compose logs -f
-```
-
-使用预构建镜像 / Use the prebuilt image (push 后自动构建发布到 GHCR / auto-built and published to GHCR on every push):
-
-```bash
-docker pull ghcr.io/paipaiio/telegram-customer-service-bot:latest
-```
-
-质量检查 / Checks:
-
-```bash
-go test ./...
+go test -race ./...
 go vet ./...
 make coverage
 ```
 
-## 管理员命令 / Admin Commands
+构建容器：
 
-在 Topic 内使用 / Used inside a topic:
+```bash
+docker compose up -d --build
+```
 
-| 命令 Command | 说明 Description |
+## Web API
+
+| 方法 | 路径 | 认证 | 用途 |
+|---|---|---|---|
+| `GET` | `/healthz` | 无 | 健康检查 |
+| `POST` | `/api/v1/conversations` | `WEB_API_KEY` | 创建网页会话和 Topic |
+| `POST` | `/api/v1/conversations/{id}/messages` | `visitor_token` | 发送消息或引用回复 |
+| `GET` | `/api/v1/conversations/{id}/messages` | `visitor_token` | 使用游标增量读取消息 |
+
+推荐接入方式：浏览器请求业务系统自己的同域后端，业务后端通过内网调用 ForumDesk。这样集成密钥始终留在服务器端。
+
+- [交互式 API 文档](API.html)
+- [OpenAPI 3.1](openapi.json)
+- [浏览器接入示例](examples/web-client.html)
+
+## 管理员命令
+
+| 命令 | 作用 |
 |---|---|
-| `/protect` [on/off] | 查看或设置内容保护 / View or toggle content protection |
-| `/delete`, `/del` | 回复消息后双端删除 / Delete a replied message on both ends |
-| `/clear` + `/clear confirm` | 清空双方消息并保留资料卡 / Clear both sides, keep profile card |
-| `/clear_user` + confirm | 仅清空用户端 / Clear user side only |
-| `/help` | 显示完整说明 / Show full help |
+| `/protect on\|off` | 查看或设置之后发送的消息保护 |
+| `/delete`、`/del` | 回复消息后双端删除 |
+| `/clear` + `/clear confirm` | 清空双方消息，保留 Topic 和资料卡 |
+| `/clear_user` + `/clear_user confirm` | 仅清空客户端消息 |
+| `/allow_staff` | 回复成员消息，允许该成员在当前 Topic 自动外发 |
+| `/deny_staff` | 取消该成员在当前 Topic 的自动外发权限 |
+| `/staff` | 查看当前 Topic 已授权成员 |
+| `/show` | 回复内部消息，单独设为对客户可见 |
+| `/hide` | 回复已发布消息，转为仅管理端可见 |
+| `/help` | 显示完整命令说明 |
 
-用户私聊只显示 `/delete` 和 `/help`。Users only see `/delete` and `/help`.
+用户私聊菜单仅显示 `/delete` 和 `/help`。成员是否能浏览某个 Topic 由 Telegram 群权限决定；上述命令控制消息是否外发给客户。
 
-## 项目结构 / Project Structure
+## 数据与升级
 
+数据保存在 Docker Volume 的 `/app/data/forumdesk.json`。升级镜像不会删除 Volume：
+
+```bash
+docker compose pull
+docker compose up -d
 ```
-cmd/forumdesk/       程序入口 / entrypoint
-internal/app/        长轮询运行器 / long-polling runner
-internal/bot/        Topic 双向路由 / two-way topic routing
-internal/config/     环境变量配置 / env config
-internal/store/      JSON 原子持久化 / atomic JSON persistence
-internal/telegram/   Telegram Bot API 客户端 / Bot API client
-data/                运行数据（自动创建）/ runtime data (auto-created)
+
+备份：
+
+```bash
+docker compose exec forumdesk cat /app/data/forumdesk.json \
+  > forumdesk-backup-$(date +%Y%m%d-%H%M%S).json
 ```
 
-## 已知边界 / Known Limitations
+避免使用 `docker compose down -v`，该命令会删除 Compose 数据卷。
 
-- 普通 Bot API 不推送常规消息的删除事件，直接点 Telegram 的「删除」只影响当前一端，请用 `/delete` 触发双端删除。
-  The Bot API doesn't deliver deletion events for normal messages — use `/delete` for two-side removal.
-- 相册批量消息暂未保持分组；封禁、会话关闭、PostgreSQL 多实例等在路线图中。
-  Album grouping, ban/close actions, and PostgreSQL multi-instance support are on the roadmap.
-- 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。
-  Config is injected via environment variables only; the bot token is never written to code or data files.
+## 项目结构
+
+```text
+cmd/forumdesk/       程序入口
+internal/app/        Telegram 长轮询运行器
+internal/bot/        Topic 路由与客服控制
+internal/config/     环境变量加载与校验
+internal/store/      JSON 原子持久化
+internal/telegram/   Telegram Bot API 客户端
+internal/webapi/     网页客服 REST API
+examples/            网页接入示例
+API.html             交互式 API 文档
+openapi.json         OpenAPI 3.1 规范
+```
+
+## 当前边界
+
+- Telegram Bot API 不推送普通消息的删除事件；双端删除请使用 `/delete`。
+- Topic 没有独立头像，ForumDesk 使用客户头像资料卡模拟识别效果。
+- 当前网页 API 使用游标轮询，消息体为 1–4000 字符文本。
+- 当前存储适合单实例；多实例部署可迁移到 PostgreSQL 或其他共享存储。
+
+## 参与贡献
+
+欢迎通过 Issue 提交缺陷、功能建议和部署反馈。提交代码前请运行：
+
+```bash
+go test -race ./...
+go vet ./...
+```
+
+## 许可证
+
+本项目使用 [CC BY-NC-SA 4.0](LICENSE)：允许署名、非商业使用、修改和分发，衍生作品需要使用相同许可方式。

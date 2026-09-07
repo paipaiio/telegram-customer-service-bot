@@ -1,90 +1,90 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ForumDesk 中文文档</title>
+<title>ForumDesk Documentation</title>
 <style>
 :root{--bg:#f6f8fa;--paper:#fff;--text:#1f2328;--muted:#59636e;--line:#d0d7de;--accent:#0969da;--code:#f6f8fa;--ok:#1a7f37}@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--paper:#161b22;--text:#e6edf3;--muted:#8d96a0;--line:#30363d;--accent:#58a6ff;--code:#0d1117;--ok:#3fb950}}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}.topbar{position:sticky;top:0;z-index:20;height:58px;display:flex;align-items:center;gap:14px;padding:0 22px;background:color-mix(in srgb,var(--paper) 94%,transparent);border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}.brand{font-weight:700}.topbar a{color:var(--accent);text-decoration:none}.search{margin-left:auto;width:min(320px,40vw);padding:8px 11px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}.layout{display:grid;grid-template-columns:230px minmax(0,900px);gap:34px;max-width:1210px;margin:0 auto;padding:28px 20px 72px}nav{position:sticky;top:82px;align-self:start;max-height:calc(100vh - 105px);overflow:auto}nav strong{display:block;margin-bottom:10px}nav a{display:block;padding:5px 9px;border-left:2px solid var(--line);color:var(--muted);text-decoration:none}nav a:hover,nav a.active{border-color:var(--accent);color:var(--accent)}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}.tabs a{padding:6px 10px;border:1px solid var(--line);border-radius:6px;color:var(--accent);text-decoration:none;background:var(--paper)}main{min-width:0}article{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:34px 42px}section{padding-top:10px;scroll-margin-top:74px}h1{font-size:2.25rem;margin:.1em 0}h2{font-size:1.55rem;border-bottom:1px solid var(--line);padding-bottom:.32em;margin-top:1.8em}h3{font-size:1.15rem;margin-top:1.5em}a{color:var(--accent)}img{max-width:100%}table{width:100%;border-collapse:collapse;display:block;overflow:auto}th,td{padding:8px 11px;border:1px solid var(--line);text-align:left}tr:nth-child(2n){background:var(--bg)}blockquote{margin:16px 0;padding:8px 14px;border-left:4px solid var(--accent);color:var(--muted);background:var(--bg)}.highlight,pre{position:relative;background:var(--code)!important;border:1px solid var(--line);border-radius:6px;overflow:auto}pre{padding:16px!important}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}p code,li code,td code{padding:.12em .32em;border-radius:4px;background:var(--code)}.copy{position:absolute;right:7px;top:7px;z-index:3;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--accent);cursor:pointer}.builder{margin-top:20px;padding:18px;background:var(--paper);border:1px solid var(--line);border-radius:8px}.builder h2{margin:0 0 12px;font-size:1.1rem;border:0}.controls{display:grid;grid-template-columns:1fr 120px;gap:10px}.controls label{color:var(--muted);font-size:13px}.controls input{display:block;width:100%;padding:8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--text)}.builder pre{margin-bottom:0}.empty{display:none;padding:30px;text-align:center;color:var(--muted)}@media(max-width:780px){.topbar{padding:0 12px}.search{width:46vw}.layout{display:block;padding:14px 10px 50px}nav{position:static;max-height:none;margin-bottom:18px;columns:2}nav strong{column-span:all}article{padding:22px 16px}.controls{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">ForumDesk</span><a href="README_EN.html">English</a><a href="README.md">Markdown</a><input id="search" class="search" type="search" placeholder="搜索文档" aria-label="搜索文档"></header>
-<div class="layout"><aside><nav id="toc"><strong>目录</strong></nav><div class="builder"><h2>连接检查命令</h2><div class="controls"><label>服务器地址<input id="host" value="127.0.0.1"></label><label>端口<input id="port" value="8080" inputmode="numeric"></label></div><div class="highlight"><button class="copy" data-target="generated">复制</button><pre id="generated">curl http://127.0.0.1:8080/healthz</pre></div></div></aside><main><div class="tabs" id="tabs"></div><article id="doc"><div align="center" dir="auto">
+<header class="topbar"><span class="brand">ForumDesk</span><a href="README.html">简体中文</a><a href="README_EN.md">Markdown</a><input id="search" class="search" type="search" placeholder="Search documentation" aria-label="Search documentation"></header>
+<div class="layout"><aside><nav id="toc"><strong>Contents</strong></nav><div class="builder"><h2>Health-check command</h2><div class="controls"><label>Server host<input id="host" value="127.0.0.1"></label><label>Port<input id="port" value="8080" inputmode="numeric"></label></div><div class="highlight"><button class="copy" data-target="generated">Copy</button><pre id="generated">curl http://127.0.0.1:8080/healthz</pre></div></div></aside><main><div class="tabs" id="tabs"></div><article id="doc"><div align="center" dir="auto">
 <h1 dir="auto">ForumDesk</h1>
-<p dir="auto"><strong>把 Telegram 私聊和网页客服统一接入独立 Forum Topic。</strong></p>
-<p dir="auto"><a href="README_EN.md">English</a> · <a href="README.html">交互式文档</a> · <a href="API.html">Web API</a> · <a href="openapi.json">OpenAPI</a></p>
+<p dir="auto"><strong>Bridge Telegram DMs and website support chats into dedicated forum topics.</strong></p>
+<p dir="auto"><a href="README.md">简体中文</a> · <a href="README_EN.html">Interactive docs</a> · <a href="API.html">Web API</a> · <a href="openapi.json">OpenAPI</a></p>
 <p dir="auto"><a href="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml"><img src="https://github.com/paipaiio/telegram-customer-service-bot/actions/workflows/docker.yml/badge.svg" alt="Docker Build" style="max-width: 100%;"></a><br>
 <a href="go.mod"><img src="https://camo.githubusercontent.com/42a8119239952bdf2ce6b26d1b1c896936c9f84e80b36c23fa133857bd2a0cd2/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f476f2d312e32332d3030414444383f6c6f676f3d676f266c6f676f436f6c6f723d7768697465" alt="Go 1.23" data-canonical-src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&amp;logoColor=white" style="max-width: 100%;"></a><br>
 <a href="https://github.com/paipaiio/telegram-customer-service-bot/pkgs/container/telegram-customer-service-bot"><img src="https://camo.githubusercontent.com/bc0a6ede27105896d552ebdf5ba0f1226767476406982486344b0441381d3ff9/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f474843522d6d756c74692d2d617263682d3234393645443f6c6f676f3d646f636b6572266c6f676f436f6c6f723d7768697465" alt="GHCR" data-canonical-src="https://img.shields.io/badge/GHCR-multi--arch-2496ED?logo=docker&amp;logoColor=white" style="max-width: 100%;"></a><br>
 <a href="LICENSE"><img src="https://camo.githubusercontent.com/ed6dc0db32f838ac999b25896dd6f9508f4646667358b4bb7d07e723ad38da7b/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f4c6963656e73652d434325323042592d2d4e432d2d5341253230342e302d6c69676874677265792e737667" alt="License: CC BY-NC-SA 4.0" data-canonical-src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" style="max-width: 100%;"></a></p>
 </div>
-<p dir="auto">ForumDesk 是一个使用 Go 编写的自托管客服网关。Telegram 用户私聊 Bot，或网页访客通过 REST API 发起会话后，系统会在私有超级群中为每位客户创建独立 Topic。客服直接在 Topic 内协作，Bot 负责双向消息、引用、编辑、删除和可见性映射。</p>
-<h2 dir="auto">为什么使用 ForumDesk</h2>
-<p dir="auto">传统转发 Bot 把所有客户消息混在一个聊天窗口里，消息量增加后容易串线。ForumDesk 使用 Telegram Forum Topic 作为工作区：</p>
+<p dir="auto">ForumDesk is a self-hosted customer support gateway written in Go. When a Telegram user messages the bot, or a website visitor starts a conversation through the REST API, ForumDesk creates a dedicated topic in a private supergroup. Your team collaborates inside the topic while the bot maps messages, quotes, edits, deletion, and visibility across channels.</p>
+<h2 dir="auto">Why ForumDesk</h2>
+<p dir="auto">Traditional forwarding bots mix every customer into one chat. ForumDesk uses Telegram forum topics as a lightweight support workspace:</p>
 <ul dir="auto">
-<li>一位客户对应一个 Topic，历史上下文天然隔离。</li>
-<li>管理员、技术和商务可在同一个 Topic 内协作。</li>
-<li>普通成员发言默认仅内部可见，管理员决定按人或按消息外发。</li>
-<li>同一个客服群同时承接 Telegram 私聊和网页客服。</li>
-<li>单个 Go 进程、JSON 持久化、零第三方 Go 依赖，适合小型自托管部署。</li>
+<li>One customer maps to one topic with isolated history.</li>
+<li>Administrators, technical staff, and sales staff collaborate in the same topic.</li>
+<li>Regular members are internal by default; administrators decide who or what is published.</li>
+<li>One support group handles both Telegram DMs and website conversations.</li>
+<li>A single Go process, atomic JSON persistence, and no third-party Go dependencies keep deployment small.</li>
 </ul>
-<h2 dir="auto">功能</h2>
-<h3 dir="auto">会话与消息</h3>
+<h2 dir="auto">Features</h2>
+<h3 dir="auto">Conversations and messages</h3>
 <ul dir="auto">
-<li>每位 Telegram 用户自动创建并复用独立 Topic。</li>
-<li>每个网页会话自动创建独立 Topic，并附带来源资料卡。</li>
-<li>支持文本、图片、语音、视频、文件等 Telegram 消息类型。</li>
-<li>Telegram 双向引用映射；网页消息通过 <code class="notranslate">reply_to_message_id</code> 保留引用。</li>
-<li>Telegram 客服编辑会同步修改用户端副本；Telegram 用户编辑会在 Topic 中引用原消息并追加变更。</li>
-<li><code class="notranslate">/delete</code> 双端删除单条消息。</li>
-<li><code class="notranslate">/clear</code> 清空双方对话，保留 Topic 和首条资料卡。</li>
-<li><code class="notranslate">/clear_user</code> 仅清空客户端，保留管理端历史。</li>
+<li>Automatically create and reuse one topic for each Telegram user.</li>
+<li>Create a topic and visitor profile card for each web conversation.</li>
+<li>Relay Telegram text, photos, voice, video, documents, and other message types.</li>
+<li>Map Telegram quotes both ways and preserve web quotes through <code class="notranslate">reply_to_message_id</code>.</li>
+<li>Sync Telegram staff edits in place; append Telegram user edits in the topic with a reference to the original.</li>
+<li>Delete one mapped message from both sides with <code class="notranslate">/delete</code>.</li>
+<li>Clear both sides while keeping the topic and profile card with <code class="notranslate">/clear</code>.</li>
+<li>Clear the customer side while retaining the admin history with <code class="notranslate">/clear_user</code>.</li>
 </ul>
-<h3 dir="auto">团队协作</h3>
+<h3 dir="auto">Team collaboration</h3>
 <ul dir="auto">
-<li>群管理员发言默认对客户可见。</li>
-<li>普通成员发言默认仅保留在 Topic 内。</li>
-<li><code class="notranslate">/allow_staff</code>、<code class="notranslate">/deny_staff</code> 按 Topic 控制成员自动外发权限。</li>
-<li><code class="notranslate">/show</code>、<code class="notranslate">/hide</code> 控制单条消息是否对客户可见。</li>
-<li><code class="notranslate">/staff</code> 查看当前 Topic 已授权成员。</li>
+<li>Group administrator messages are customer-visible by default.</li>
+<li>Regular member messages stay internal by default.</li>
+<li>Grant or revoke automatic publishing per member and per topic with <code class="notranslate">/allow_staff</code> and <code class="notranslate">/deny_staff</code>.</li>
+<li>Publish or hide one message with <code class="notranslate">/show</code> and <code class="notranslate">/hide</code>.</li>
+<li>List approved members with <code class="notranslate">/staff</code>.</li>
 </ul>
-<h3 dir="auto">安全与部署</h3>
+<h3 dir="auto">Security and deployment</h3>
 <ul dir="auto">
-<li><code class="notranslate">/protect on</code> 为之后发送的 Telegram 消息启用内容保护。</li>
-<li>Web API 使用集成密钥和会话级访客 Token 两层认证。</li>
-<li>访客 Token 仅保存 SHA-256 摘要。</li>
-<li>精确 CORS Origin、16 KiB 请求限制和每分钟速率限制。</li>
-<li>JSON 数据原子写入，Docker Volume 持久化。</li>
-<li>GitHub Actions 自动构建 GHCR <code class="notranslate">linux/amd64</code>、<code class="notranslate">linux/arm64</code> 镜像。</li>
+<li>Apply Telegram content protection to subsequent messages with <code class="notranslate">/protect on</code>.</li>
+<li>Authenticate the Web API with an integration key and conversation-scoped visitor tokens.</li>
+<li>Store only SHA-256 digests of visitor tokens.</li>
+<li>Enforce exact CORS origins, a 16 KiB request limit, and per-minute rate limits.</li>
+<li>Persist JSON atomically in a Docker volume.</li>
+<li>Build GHCR images for <code class="notranslate">linux/amd64</code> and <code class="notranslate">linux/arm64</code> through GitHub Actions.</li>
 </ul>
 <blockquote>
-<p dir="auto">Telegram 的 <code class="notranslate">protect_content</code> 主要限制转发与保存；截图表现由客户端和操作系统决定。该参数只影响启用后新发送的消息。</p>
+<p dir="auto">Telegram <code class="notranslate">protect_content</code> primarily restricts forwarding and saving. Screenshot behavior depends on the client and operating system. The flag applies only to messages sent after it is enabled.</p>
 </blockquote>
-<h2 dir="auto">工作原理</h2>
-<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="30c53f4e-0a9a-47e3-8af0-33cd6c3b9781" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
-  <div class="js-render-enrichment-target" data-json="{&quot;data&quot;:&quot;flowchart LR\n    TG[Telegram 私聊用户] --&gt; BOT[ForumDesk Bot]\n    WEB[网页访客] --&gt; API[ForumDesk Web API]\n    API --&gt; BOT\n    BOT --&gt; TOPIC[私有超级群 Topic]\n    TOPIC --&gt; ADMIN[管理员]\n    TOPIC --&gt; STAFF[技术 / 商务]\n    ADMIN --&gt; BOT\n    STAFF --&gt;|管理员授权后| BOT\n    BOT --&gt; TG\n    BOT --&gt; API\n    API --&gt; WEB\n&quot;}" data-plain="flowchart LR
-    TG[Telegram 私聊用户] --&gt; BOT[ForumDesk Bot]
-    WEB[网页访客] --&gt; API[ForumDesk Web API]
+<h2 dir="auto">Architecture</h2>
+<section class="js-render-needs-enrichment render-needs-enrichment position-relative" data-identity="592df6f8-40d3-40f1-8589-bba3edb58bfc" data-host="https://viewscreen.githubusercontent.com" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com" data-type="mermaid" aria-label="mermaid rendered output container">
+  <div class="js-render-enrichment-target" data-json="{&quot;data&quot;:&quot;flowchart LR\n    TG[Telegram user] --&gt; BOT[ForumDesk Bot]\n    WEB[Website visitor] --&gt; API[ForumDesk Web API]\n    API --&gt; BOT\n    BOT --&gt; TOPIC[Private supergroup topic]\n    TOPIC --&gt; ADMIN[Administrator]\n    TOPIC --&gt; STAFF[Technical / Sales staff]\n    ADMIN --&gt; BOT\n    STAFF --&gt;|After approval| BOT\n    BOT --&gt; TG\n    BOT --&gt; API\n    API --&gt; WEB\n&quot;}" data-plain="flowchart LR
+    TG[Telegram user] --&gt; BOT[ForumDesk Bot]
+    WEB[Website visitor] --&gt; API[ForumDesk Web API]
     API --&gt; BOT
-    BOT --&gt; TOPIC[私有超级群 Topic]
-    TOPIC --&gt; ADMIN[管理员]
-    TOPIC --&gt; STAFF[技术 / 商务]
+    BOT --&gt; TOPIC[Private supergroup topic]
+    TOPIC --&gt; ADMIN[Administrator]
+    TOPIC --&gt; STAFF[Technical / Sales staff]
     ADMIN --&gt; BOT
-    STAFF --&gt;|管理员授权后| BOT
+    STAFF --&gt;|After approval| BOT
     BOT --&gt; TG
     BOT --&gt; API
     API --&gt; WEB
 " dir="auto">
     <div class="render-plaintext-hidden" dir="auto">
       <pre lang="mermaid" aria-label="Raw mermaid code" class="notranslate">flowchart LR
-    TG[Telegram 私聊用户] --&gt; BOT[ForumDesk Bot]
-    WEB[网页访客] --&gt; API[ForumDesk Web API]
+    TG[Telegram user] --&gt; BOT[ForumDesk Bot]
+    WEB[Website visitor] --&gt; API[ForumDesk Web API]
     API --&gt; BOT
-    BOT --&gt; TOPIC[私有超级群 Topic]
-    TOPIC --&gt; ADMIN[管理员]
-    TOPIC --&gt; STAFF[技术 / 商务]
+    BOT --&gt; TOPIC[Private supergroup topic]
+    TOPIC --&gt; ADMIN[Administrator]
+    TOPIC --&gt; STAFF[Technical / Sales staff]
     ADMIN --&gt; BOT
-    STAFF --&gt;|管理员授权后| BOT
+    STAFF --&gt;|After approval| BOT
     BOT --&gt; TG
     BOT --&gt; API
     API --&gt; WEB
@@ -101,18 +101,18 @@
   </span>
 </section>
 
-<p dir="auto">Topic 负责客服协作和历史展示，<code class="notranslate">forumdesk.json</code> 保存用户、Topic、消息、网页会话和成员权限映射。</p>
-<h2 dir="auto">快速开始</h2>
-<h3 dir="auto">1. 配置 Telegram</h3>
+<p dir="auto">Topics provide the collaboration history. <code class="notranslate">forumdesk.json</code> stores user, topic, message, web conversation, and staff visibility mappings.</p>
+<h2 dir="auto">Quick Start</h2>
+<h3 dir="auto">1. Configure Telegram</h3>
 <ol dir="auto">
-<li>在 <a href="https://t.me/BotFather" rel="nofollow">@BotFather</a> 创建 Bot 并取得 Token。</li>
-<li>创建私有超级群并开启“话题”。</li>
-<li>将 Bot 设为管理员，授予发送消息、删除消息和管理话题权限。</li>
-<li>获取超级群 ID，格式通常为 <code class="notranslate">-100...</code>。</li>
+<li>Create a bot with <a href="https://t.me/BotFather" rel="nofollow">@BotFather</a> and copy its token.</li>
+<li>Create a private supergroup and enable <strong>Topics</strong>.</li>
+<li>Add the bot as an administrator with <strong>Send Messages</strong>, <strong>Delete Messages</strong>, and <strong>Manage Topics</strong> permissions.</li>
+<li>Find the supergroup ID, normally starting with <code class="notranslate">-100</code>.</li>
 </ol>
-<h3 dir="auto">2. 创建环境变量</h3>
+<h3 dir="auto">2. Configure environment variables</h3>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">cp .env.example .env</pre></div>
-<p dir="auto">编辑 <code class="notranslate">.env</code>：</p>
+<p dir="auto">Edit <code class="notranslate">.env</code>:</p>
 <div class="highlight highlight-source-dotenv" dir="auto"><pre class="notranslate"><span class="pl-v">BOT_TOKEN</span><span class="pl-k">=</span><span class="pl-s">123456789:YOUR_BOT_TOKEN</span>
 <span class="pl-v">SUPPORT_GROUP_ID</span><span class="pl-k">=</span><span class="pl-s">-1001234567890</span>
 <span class="pl-v">DATA_FILE</span><span class="pl-k">=</span><span class="pl-s">./data/forumdesk.json</span>
@@ -120,10 +120,10 @@
 <span class="pl-v">WEB_API_KEY</span><span class="pl-k">=</span><span class="pl-s">replace-with-at-least-32-random-characters</span>
 <span class="pl-v">WEB_ALLOWED_ORIGINS</span><span class="pl-k">=</span><span class="pl-s">https://www.example.com</span>
 <span class="pl-v">WEB_RATE_LIMIT_PER_MINUTE</span><span class="pl-k">=</span><span class="pl-s">60</span></pre></div>
-<p dir="auto">生成 API 密钥：</p>
+<p dir="auto">Generate an API key:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">openssl rand -hex 32</pre></div>
-<p dir="auto"><code class="notranslate">WEB_API_KEY</code> 只放在网站后端；浏览器使用创建会话时返回的单会话 <code class="notranslate">visitor_token</code>。</p>
-<h3 dir="auto">3. 使用 GHCR 镜像启动</h3>
+<p dir="auto">Keep <code class="notranslate">WEB_API_KEY</code> on your application server. Browsers use the conversation-scoped <code class="notranslate">visitor_token</code> returned when a conversation is created.</p>
+<h3 dir="auto">3. Start the GHCR image</h3>
 <div class="highlight highlight-source-yaml" dir="auto"><pre class="notranslate"><span class="pl-ent">services</span>:
   <span class="pl-ent">forumdesk</span>:
     <span class="pl-ent">image</span>: <span class="pl-s">ghcr.io/paipaiio/telegram-customer-service-bot:latest</span>
@@ -141,151 +141,151 @@
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">docker compose pull
 docker compose up -d
 docker compose logs -f forumdesk</pre></div>
-<p dir="auto">健康检查：</p>
+<p dir="auto">Check health:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">curl http://127.0.0.1:8080/healthz</pre></div>
 <div class="highlight highlight-source-json" dir="auto"><pre class="notranslate">{<span class="pl-ent">"data"</span>:{<span class="pl-ent">"status"</span>:<span class="pl-s"><span class="pl-pds">"</span>ok<span class="pl-pds">"</span></span>}}</pre></div>
-<h2 dir="auto">从源码运行</h2>
-<p dir="auto">要求 Go 1.23 或更高版本：</p>
+<h2 dir="auto">Run from Source</h2>
+<p dir="auto">Go 1.23 or newer is required:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate"><span class="pl-c1">set</span> -a
 <span class="pl-c1">source</span> .env
 <span class="pl-c1">set</span> +a
 go run ./cmd/forumdesk</pre></div>
-<p dir="auto">质量检查：</p>
+<p dir="auto">Run quality checks:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">go <span class="pl-c1">test</span> -race ./...
 go vet ./...
 make coverage</pre></div>
-<p dir="auto">构建容器：</p>
+<p dir="auto">Build locally with Docker:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">docker compose up -d --build</pre></div>
 <h2 dir="auto">Web API</h2>
 <markdown-accessiblity-table><table role="table">
 <thead>
 <tr>
-<th>方法</th>
-<th>路径</th>
-<th>认证</th>
-<th>用途</th>
+<th>Method</th>
+<th>Path</th>
+<th>Authentication</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code class="notranslate">GET</code></td>
 <td><code class="notranslate">/healthz</code></td>
-<td>无</td>
-<td>健康检查</td>
+<td>None</td>
+<td>Health check</td>
 </tr>
 <tr>
 <td><code class="notranslate">POST</code></td>
 <td><code class="notranslate">/api/v1/conversations</code></td>
 <td><code class="notranslate">WEB_API_KEY</code></td>
-<td>创建网页会话和 Topic</td>
+<td>Create a web conversation and topic</td>
 </tr>
 <tr>
 <td><code class="notranslate">POST</code></td>
 <td><code class="notranslate">/api/v1/conversations/{id}/messages</code></td>
 <td><code class="notranslate">visitor_token</code></td>
-<td>发送消息或引用回复</td>
+<td>Send a message or quoted reply</td>
 </tr>
 <tr>
 <td><code class="notranslate">GET</code></td>
 <td><code class="notranslate">/api/v1/conversations/{id}/messages</code></td>
 <td><code class="notranslate">visitor_token</code></td>
-<td>使用游标增量读取消息</td>
+<td>Poll messages with an incremental cursor</td>
 </tr>
 </tbody>
 </table></markdown-accessiblity-table>
-<p dir="auto">推荐接入方式：浏览器请求业务系统自己的同域后端，业务后端通过内网调用 ForumDesk。这样集成密钥始终留在服务器端。</p>
+<p dir="auto">The recommended integration keeps the browser on your application's origin. Your application backend calls ForumDesk over a private network, so the integration key remains server-side.</p>
 <ul dir="auto">
-<li><a href="API.html">交互式 API 文档</a></li>
-<li><a href="openapi.json">OpenAPI 3.1</a></li>
-<li><a href="examples/web-client.html">浏览器接入示例</a></li>
+<li><a href="API.html">Interactive API documentation</a></li>
+<li><a href="openapi.json">OpenAPI 3.1 specification</a></li>
+<li><a href="examples/web-client.html">Browser integration example</a></li>
 </ul>
-<h2 dir="auto">管理员命令</h2>
+<h2 dir="auto">Administrator Commands</h2>
 <markdown-accessiblity-table><table role="table">
 <thead>
 <tr>
-<th>命令</th>
-<th>作用</th>
+<th>Command</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code class="notranslate">/protect on|off</code></td>
-<td>查看或设置之后发送的消息保护</td>
+<td>View or change protection for subsequent messages</td>
 </tr>
 <tr>
-<td><code class="notranslate">/delete</code>、<code class="notranslate">/del</code></td>
-<td>回复消息后双端删除</td>
+<td><code class="notranslate">/delete</code>, <code class="notranslate">/del</code></td>
+<td>Reply to delete one mapped message from both sides</td>
 </tr>
 <tr>
 <td><code class="notranslate">/clear</code> + <code class="notranslate">/clear confirm</code></td>
-<td>清空双方消息，保留 Topic 和资料卡</td>
+<td>Clear both sides while keeping the topic and profile card</td>
 </tr>
 <tr>
 <td><code class="notranslate">/clear_user</code> + <code class="notranslate">/clear_user confirm</code></td>
-<td>仅清空客户端消息</td>
+<td>Clear only the customer side</td>
 </tr>
 <tr>
 <td><code class="notranslate">/allow_staff</code></td>
-<td>回复成员消息，允许该成员在当前 Topic 自动外发</td>
+<td>Reply to a member and allow automatic publishing in this topic</td>
 </tr>
 <tr>
 <td><code class="notranslate">/deny_staff</code></td>
-<td>取消该成员在当前 Topic 的自动外发权限</td>
+<td>Revoke that member's automatic publishing permission in this topic</td>
 </tr>
 <tr>
 <td><code class="notranslate">/staff</code></td>
-<td>查看当前 Topic 已授权成员</td>
+<td>List approved members in this topic</td>
 </tr>
 <tr>
 <td><code class="notranslate">/show</code></td>
-<td>回复内部消息，单独设为对客户可见</td>
+<td>Reply to an internal message and publish it</td>
 </tr>
 <tr>
 <td><code class="notranslate">/hide</code></td>
-<td>回复已发布消息，转为仅管理端可见</td>
+<td>Reply to a published message and make it internal</td>
 </tr>
 <tr>
 <td><code class="notranslate">/help</code></td>
-<td>显示完整命令说明</td>
+<td>Show the full command reference</td>
 </tr>
 </tbody>
 </table></markdown-accessiblity-table>
-<p dir="auto">用户私聊菜单仅显示 <code class="notranslate">/delete</code> 和 <code class="notranslate">/help</code>。成员是否能浏览某个 Topic 由 Telegram 群权限决定；上述命令控制消息是否外发给客户。</p>
-<h2 dir="auto">数据与升级</h2>
-<p dir="auto">数据保存在 Docker Volume 的 <code class="notranslate">/app/data/forumdesk.json</code>。升级镜像不会删除 Volume：</p>
+<p dir="auto">Private users only see <code class="notranslate">/delete</code> and <code class="notranslate">/help</code>. Telegram group permissions determine which topics a member can browse; these commands determine whether a message is delivered to the customer.</p>
+<h2 dir="auto">Data and Upgrades</h2>
+<p dir="auto">Runtime data lives at <code class="notranslate">/app/data/forumdesk.json</code> in a Docker volume. Pulling a new image preserves the volume:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">docker compose pull
 docker compose up -d</pre></div>
-<p dir="auto">备份：</p>
+<p dir="auto">Create a backup:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">docker compose <span class="pl-c1">exec</span> forumdesk cat /app/data/forumdesk.json \
   <span class="pl-k">&gt;</span> forumdesk-backup-<span class="pl-s"><span class="pl-pds">$(</span>date +%Y%m%d-%H%M%S<span class="pl-pds">)</span></span>.json</pre></div>
-<p dir="auto">避免使用 <code class="notranslate">docker compose down -v</code>，该命令会删除 Compose 数据卷。</p>
-<h2 dir="auto">项目结构</h2>
-<pre lang="text" class="notranslate"><code class="notranslate">cmd/forumdesk/       程序入口
-internal/app/        Telegram 长轮询运行器
-internal/bot/        Topic 路由与客服控制
-internal/config/     环境变量加载与校验
-internal/store/      JSON 原子持久化
-internal/telegram/   Telegram Bot API 客户端
-internal/webapi/     网页客服 REST API
-examples/            网页接入示例
-API.html             交互式 API 文档
-openapi.json         OpenAPI 3.1 规范
+<p dir="auto">Avoid <code class="notranslate">docker compose down -v</code>, which removes the Compose volume.</p>
+<h2 dir="auto">Project Structure</h2>
+<pre lang="text" class="notranslate"><code class="notranslate">cmd/forumdesk/       application entrypoint
+internal/app/        Telegram long-polling runner
+internal/bot/        topic routing and staff controls
+internal/config/     environment loading and validation
+internal/store/      atomic JSON persistence
+internal/telegram/   Telegram Bot API client
+internal/webapi/     web support REST API
+examples/            browser integration example
+API.html             interactive API documentation
+openapi.json         OpenAPI 3.1 specification
 </code></pre>
-<h2 dir="auto">当前边界</h2>
+<h2 dir="auto">Current Scope</h2>
 <ul dir="auto">
-<li>Telegram Bot API 不推送普通消息的删除事件；双端删除请使用 <code class="notranslate">/delete</code>。</li>
-<li>Topic 没有独立头像，ForumDesk 使用客户头像资料卡模拟识别效果。</li>
-<li>当前网页 API 使用游标轮询，消息体为 1–4000 字符文本。</li>
-<li>当前存储适合单实例；多实例部署可迁移到 PostgreSQL 或其他共享存储。</li>
+<li>The Telegram Bot API does not send ordinary message-deletion updates. Use <code class="notranslate">/delete</code> for mapped two-side deletion.</li>
+<li>Forum topics do not have individual avatars; ForumDesk posts a customer profile card with the avatar instead.</li>
+<li>Web API v1 uses cursor polling and accepts text messages between 1 and 4,000 characters.</li>
+<li>The current store targets a single instance. Multi-instance deployments can move mappings to PostgreSQL or another shared store.</li>
 </ul>
-<h2 dir="auto">参与贡献</h2>
-<p dir="auto">欢迎通过 Issue 提交缺陷、功能建议和部署反馈。提交代码前请运行：</p>
+<h2 dir="auto">Contributing</h2>
+<p dir="auto">Issues, feature requests, deployment feedback, and pull requests are welcome. Before opening a pull request, run:</p>
 <div class="highlight highlight-source-shell" dir="auto"><pre class="notranslate">go <span class="pl-c1">test</span> -race ./...
 go vet ./...</pre></div>
-<h2 dir="auto">许可证</h2>
-<p dir="auto">本项目使用 <a href="LICENSE">CC BY-NC-SA 4.0</a>：允许署名、非商业使用、修改和分发，衍生作品需要使用相同许可方式。</p></article><div id="empty" class="empty">没有匹配的内容</div></main></div>
+<h2 dir="auto">License</h2>
+<p dir="auto">ForumDesk is licensed under <a href="LICENSE">CC BY-NC-SA 4.0</a>. Attribution, non-commercial use, modification, and redistribution are permitted under the same license terms.</p></article><div id="empty" class="empty">No matching content</div></main></div>
 <script>
-const labels={"copy":"复制","copied":"已复制"};
+const labels={"copy":"Copy","copied":"Copied"};
 const doc=document.getElementById('doc'),toc=document.getElementById('toc'),tabs=document.getElementById('tabs');
 const slug=(s,i)=>'section-'+(i+1)+'-'+s.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,'-').replace(/^-|-$/g,'');
 const headings=[...doc.querySelectorAll('h2')];headings.forEach((h,i)=>{h.id=slug(h.textContent,i);const a=document.createElement('a');a.href='#'+h.id;a.textContent=h.textContent;toc.append(a);if(i<4){const t=a.cloneNode(true);tabs.append(t)}});
