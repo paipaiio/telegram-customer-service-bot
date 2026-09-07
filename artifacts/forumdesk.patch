@@ -12,13 +12,75 @@ index 0000000..203fb1c
 +coverage.out
 diff --git a/.env.example b/.env.example
 new file mode 100644
-index 0000000..ccd6321
+index 0000000..92c1724
 --- /dev/null
 +++ b/.env.example
-@@ -0,0 +1,3 @@
+@@ -0,0 +1,7 @@
 +BOT_TOKEN=123456789:replace_with_botfather_token
 +SUPPORT_GROUP_ID=-1001234567890
 +DATA_FILE=./data/forumdesk.json
++HTTP_ADDR=:8080
++WEB_API_KEY=replace-with-at-least-32-random-characters
++WEB_ALLOWED_ORIGINS=https://www.example.com
++WEB_RATE_LIMIT_PER_MINUTE=60
+diff --git a/.github/workflows/docker.yml b/.github/workflows/docker.yml
+new file mode 100644
+index 0000000..ba0b27c
+--- /dev/null
++++ b/.github/workflows/docker.yml
+@@ -0,0 +1,52 @@
++name: docker
++
++on:
++  push:
++    branches: [main]
++    tags: ['v*']
++
++env:
++  IMAGE_NAME: ghcr.io/${{ github.repository }}
++
++jobs:
++  build-and-push:
++    runs-on: ubuntu-latest
++    permissions:
++      contents: read
++      packages: write
++
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++
++      - name: Set up Docker Buildx
++        uses: docker/setup-buildx-action@v3
++
++      - name: Log in to GHCR
++        uses: docker/login-action@v3
++        with:
++          registry: ghcr.io
++          username: ${{ github.actor }}
++          password: ${{ secrets.GITHUB_TOKEN }}
++
++      - name: Extract metadata
++        id: meta
++        uses: docker/metadata-action@v5
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          tags: |
++            type=raw,value=latest,enable={{is_default_branch}}
++            type=semver,pattern={{version}}
++            type=semver,pattern={{major}}.{{minor}}
++            type=sha
++
++      - name: Build and push
++        uses: docker/build-push-action@v6
++        with:
++          context: .
++          platforms: linux/amd64,linux/arm64
++          push: true
++          tags: ${{ steps.meta.outputs.tags }}
++          labels: ${{ steps.meta.outputs.labels }}
++          cache-from: type=gha
++          cache-to: type=gha,mode=max
 diff --git a/.gitignore b/.gitignore
 new file mode 100644
 index 0000000..e7d1f07
@@ -30,12 +92,72 @@ index 0000000..e7d1f07
 +dist/
 +*.log
 +.DS_Store
+diff --git a/API.html b/API.html
+new file mode 100644
+index 0000000..36304c7
+--- /dev/null
++++ b/API.html
+@@ -0,0 +1,54 @@
++<!doctype html>
++<html lang="zh-CN">
++<head>
++  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++  <title>ForumDesk Web API v1</title>
++  <style>
++    :root{--bg:#07111f;--panel:#101e31;--panel2:#14263d;--line:#29415f;--text:#edf5ff;--muted:#9db0c9;--blue:#62b0ff;--green:#52d39d;--amber:#ffd279}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0,#173d68 0,transparent 35%),var(--bg);color:var(--text);font:15px/1.65 system-ui,sans-serif}.layout{display:grid;grid-template-columns:250px minmax(0,940px);gap:36px;max-width:1260px;margin:auto;padding:34px 22px 80px}nav{position:sticky;top:20px;align-self:start;background:#0c1929e8;border:1px solid var(--line);border-radius:18px;padding:20px}nav strong{font-size:20px}nav a{display:block;color:var(--muted);text-decoration:none;padding:6px 0}nav a:hover{color:var(--blue)}header{padding:32px;border-radius:22px;background:linear-gradient(140deg,#17345b,#0d1d31);border:1px solid #34618d}h1{font-size:40px;line-height:1.15;margin:12px 0}.tag,.method{display:inline-flex;border-radius:999px;padding:3px 9px;font-size:12px}.tag{border:1px solid #3e7eb8;color:#abd8ff}.method{background:#174933;color:#87e8bd;margin-right:8px}section{margin-top:34px;scroll-margin-top:20px}h2{font-size:24px}.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:20px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.endpoint{border-left:4px solid var(--green)}code{color:#acd8ff}.code{position:relative}.copy{position:absolute;right:9px;top:9px;z-index:2;background:#18324f;color:#e8f4ff;border:1px solid #426487;border-radius:8px;padding:6px 9px;cursor:pointer}pre{margin:0;overflow:auto;padding:18px;background:#06101c;border:1px solid #203750;border-radius:12px;color:#d9ecff;font:13px/1.6 ui-monospace,monospace}.note{border-left:3px solid var(--amber);padding:10px 14px;background:#2b2515;color:#ffe2a9;border-radius:0 10px 10px 0}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px 8px;color:var(--muted)}th{color:var(--text)}input{width:100%;background:#071321;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px}.ok{color:var(--green)}@media(max-width:760px){.layout{display:block;padding:18px 12px 50px}nav{position:static;margin-bottom:18px}.grid{grid-template-columns:1fr}h1{font-size:31px}}
++  </style>
++</head>
++<body><div class="layout">
++  <nav><strong>ForumDesk API</strong><p><span class="tag">REST · v1</span></p><a href="#start">快速开始</a><a href="#auth">认证模型</a><a href="#create">创建会话</a><a href="#send">发送消息</a><a href="#list">读取消息</a><a href="#visibility">成员可见性</a><a href="#errors">错误与限流</a><a href="openapi.json">OpenAPI JSON</a><a href="examples/web-client.html">网页客户端示例</a></nav>
++  <main>
++    <header><span class="tag">ForumDesk Web API v1</span><h1>网页客服接入 Telegram Topic</h1><p>网页访客通过 REST API 发起会话，ForumDesk 在 Telegram 超级群创建独立 Topic。客户消息由 Bot 发入 Topic，已授权客服的回复则进入网页轮询队列。</p></header>
++
++    <section id="start"><h2>快速开始</h2><div class="grid"><div class="card"><b class="ok">1. 服务端建立会话</b><p>网站后端使用集成密钥创建会话，取得一次性返回的 <code>visitor_token</code>。</p></div><div class="card"><b class="ok">2. 浏览器收发消息</b><p>只把当前访客的会话 ID 和访客 Token 交给前端，前端用它发送和轮询。</p></div></div><label>API Base URL</label><input id="base" value="https://support.example.com"><p class="note"><code>WEB_API_KEY</code> 只放网站后端；浏览器仅持有单会话 <code>visitor_token</code>。</p></section>
++
++    <section id="auth"><h2>认证模型</h2><div class="card"><table><tr><th>凭据</th><th>用途</th><th>传递方式</th></tr><tr><td>WEB_API_KEY</td><td>网站后端创建会话</td><td><code>Authorization: Bearer API_KEY</code></td></tr><tr><td>visitor_token</td><td>当前访客收发消息</td><td><code>Authorization: Bearer VISITOR_TOKEN</code></td></tr></table></div></section>
++
++    <section id="create"><h2><span class="method">POST</span>/api/v1/conversations</h2><div class="card endpoint"><p>创建网页会话和对应 Telegram Topic。此接口使用集成密钥。</p><div class="code"><button class="copy" data-copy="create-curl">复制</button><pre id="create-curl">curl -X POST "$BASE/api/v1/conversations" \
++  -H "Authorization: Bearer API_KEY" \
++  -H "Content-Type: application/json" \
++  -d '{
++    "visitor_name": "Ada",
++    "email": "ada@example.com",
++    "external_id": "customer-7",
++    "page_url": "https://www.example.com/pricing"
++  }'</pre></div><h3>201 Response</h3><pre>{"data":{"id":"wc_...","visitor_token":"wv_...","status":"open","created_at":"2026-09-07T10:00:00Z"}}</pre></div></section>
++
++    <section id="send"><h2><span class="method">POST</span>/api/v1/conversations/{id}/messages</h2><div class="card endpoint"><p>访客发送 1–4000 字符的文本。可选的 <code>reply_to_message_id</code> 会在网页与 Telegram Topic 两端保留引用关系。</p><div class="code"><button class="copy" data-copy="send-js">复制</button><pre id="send-js">await fetch(`${BASE}/api/v1/conversations/${conversationId}/messages`, {
++  method: "POST",
++  headers: {
++    "Authorization": `Bearer ${visitorToken}`,
++    "Content-Type": "application/json"
++  },
++  body: JSON.stringify({
++    text: "我想了解商务方案",
++    reply_to_message_id: "wm_..." // 可选
++  })
++});</pre></div></div></section>
++
++    <section id="list"><h2><span class="method">GET</span>/api/v1/conversations/{id}/messages</h2><div class="card endpoint"><p>使用递增游标轮询：<code>after</code> 默认 0，<code>limit</code> 范围 1–100。</p><div class="code"><button class="copy" data-copy="poll-js">复制</button><pre id="poll-js">const response = await fetch(
++  `${BASE}/api/v1/conversations/${conversationId}/messages?after=${cursor}&limit=50`,
++  { headers: { "Authorization": `Bearer ${visitorToken}` } }
++);
++const payload = await response.json();
++cursor = payload.meta.next_cursor;</pre></div><p><code>direction</code> 为 <code>customer</code> 或 <code>staff</code>；<code>reply_to_message_id</code> 指向被引用的可见消息。当管理员隐藏已发消息时，队列返回 <code>event: message_hidden</code> 与 <code>target_message_id</code>，前端据此移除已渲染消息。</p></div></section>
++
++    <section id="visibility"><h2>Telegram 成员可见性</h2><div class="card"><table><tr><th>命令</th><th>作用</th></tr><tr><td><code>/allow_staff</code></td><td>管理员回复成员消息，允许其后续发言自动对客可见</td></tr><tr><td><code>/deny_staff</code></td><td>取消该成员在当前 Topic 的自动对客可见</td></tr><tr><td><code>/staff</code></td><td>查看当前 Topic 的授权成员</td></tr><tr><td><code>/show</code></td><td>回复某条内部消息，单独对客可见</td></tr><tr><td><code>/hide</code></td><td>回复某条已发消息，改为仅管理端可见</td></tr></table><p class="note">群管理员发言默认对客可见；普通成员默认只留在 Topic 内部。授权按 Topic 隔离；管理员和已授权成员在 Topic 内使用 Telegram 原生回复时，网页端也能取得引用消息 ID。</p><p class="note">这些命令控制消息是否外发给客户；成员能看到哪些 Topic 仍由 Telegram 超级群本身的成员与权限配置决定。</p></div></section>
++
++    <section id="errors"><h2>错误与限流</h2><div class="grid"><div class="card"><b>JSON 错误格式</b><pre>{"error":{"code":"validation_error","message":"..."}}</pre></div><div class="card"><b>状态码</b><p>400 JSON/游标错误 · 401 凭据错误 · 422 参数错误 · 429 限流 · 502 Telegram 上游错误</p></div></div><p>默认每个集成密钥/会话每分钟 60 次，通过 <code>WEB_RATE_LIMIT_PER_MINUTE</code> 调整。</p></section>
++  </main>
++</div><script>
++const base=document.getElementById('base');function sync(){document.querySelectorAll('pre').forEach(el=>{if(!el.dataset.raw)el.dataset.raw=el.textContent;el.textContent=el.dataset.raw.replaceAll('$BASE',base.value.replace(/\/$/,''));});}base.addEventListener('input',sync);sync();document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent);const old=btn.textContent;btn.textContent='已复制';setTimeout(()=>btn.textContent=old,1000);}));
++</script></body></html>
 diff --git a/Dockerfile b/Dockerfile
 new file mode 100644
-index 0000000..cce295a
+index 0000000..d34e425
 --- /dev/null
 +++ b/Dockerfile
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,17 @@
 +FROM golang:1.23-alpine AS build
 +WORKDIR /src
 +COPY go.mod ./
@@ -51,7 +173,451 @@ index 0000000..cce295a
 +USER forumdesk
 +ENV DATA_FILE=/app/data/forumdesk.json
 +VOLUME ["/app/data"]
++EXPOSE 8080
 +ENTRYPOINT ["forumdesk"]
+diff --git a/LICENSE b/LICENSE
+new file mode 100644
+index 0000000..7272d57
+--- /dev/null
++++ b/LICENSE
+@@ -0,0 +1,437 @@
++Attribution-NonCommercial-ShareAlike 4.0 International
++
++=======================================================================
++
++Creative Commons Corporation ("Creative Commons") is not a law firm and
++does not provide legal services or legal advice. Distribution of
++Creative Commons public licenses does not create a lawyer-client or
++other relationship. Creative Commons makes its licenses and related
++information available on an "as-is" basis. Creative Commons gives no
++warranties regarding its licenses, any material licensed under their
++terms and conditions, or any related information. Creative Commons
++disclaims all liability for damages resulting from their use to the
++fullest extent possible.
++
++Using Creative Commons Public Licenses
++
++Creative Commons public licenses provide a standard set of terms and
++conditions that creators and other rights holders may use to share
++original works of authorship and other material subject to copyright
++and certain other rights specified in the public license below. The
++following considerations are for informational purposes only, are not
++exhaustive, and do not form part of our licenses.
++
++     Considerations for licensors: Our public licenses are
++     intended for use by those authorized to give the public
++     permission to use material in ways otherwise restricted by
++     copyright and certain other rights. Our licenses are
++     irrevocable. Licensors should read and understand the terms
++     and conditions of the license they choose before applying it.
++     Licensors should also secure all rights necessary before
++     applying our licenses so that the public can reuse the
++     material as expected. Licensors should clearly mark any
++     material not subject to the license. This includes other CC-
++     licensed material, or material used under an exception or
++     limitation to copyright. More considerations for licensors:
++    wiki.creativecommons.org/Considerations_for_licensors
++
++     Considerations for the public: By using one of our public
++     licenses, a licensor grants the public permission to use the
++     licensed material under specified terms and conditions. If
++     the licensor's permission is not necessary for any reason--for
++     example, because of any applicable exception or limitation to
++     copyright--then that use is not regulated by the license. Our
++     licenses grant only permissions under copyright and certain
++     other rights that a licensor has authority to grant. Use of
++     the licensed material may still be restricted for other
++     reasons, including because others have copyright or other
++     rights in the material. A licensor may make special requests,
++     such as asking that all changes be marked or described.
++     Although not required by our licenses, you are encouraged to
++     respect those requests where reasonable. More considerations
++     for the public:
++    wiki.creativecommons.org/Considerations_for_licensees
++
++=======================================================================
++
++Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
++Public License
++
++By exercising the Licensed Rights (defined below), You accept and agree
++to be bound by the terms and conditions of this Creative Commons
++Attribution-NonCommercial-ShareAlike 4.0 International Public License
++("Public License"). To the extent this Public License may be
++interpreted as a contract, You are granted the Licensed Rights in
++consideration of Your acceptance of these terms and conditions, and the
++Licensor grants You such rights in consideration of benefits the
++Licensor receives from making the Licensed Material available under
++these terms and conditions.
++
++
++Section 1 -- Definitions.
++
++  a. Adapted Material means material subject to Copyright and Similar
++     Rights that is derived from or based upon the Licensed Material
++     and in which the Licensed Material is translated, altered,
++     arranged, transformed, or otherwise modified in a manner requiring
++     permission under the Copyright and Similar Rights held by the
++     Licensor. For purposes of this Public License, where the Licensed
++     Material is a musical work, performance, or sound recording,
++     Adapted Material is always produced where the Licensed Material is
++     synched in timed relation with a moving image.
++
++  b. Adapter's License means the license You apply to Your Copyright
++     and Similar Rights in Your contributions to Adapted Material in
++     accordance with the terms and conditions of this Public License.
++
++  c. BY-NC-SA Compatible License means a license listed at
++     creativecommons.org/compatiblelicenses, approved by Creative
++     Commons as essentially the equivalent of this Public License.
++
++  d. Copyright and Similar Rights means copyright and/or similar rights
++     closely related to copyright including, without limitation,
++     performance, broadcast, sound recording, and Sui Generis Database
++     Rights, without regard to how the rights are labeled or
++     categorized. For purposes of this Public License, the rights
++     specified in Section 2(b)(1)-(2) are not Copyright and Similar
++     Rights.
++
++  e. Effective Technological Measures means those measures that, in the
++     absence of proper authority, may not be circumvented under laws
++     fulfilling obligations under Article 11 of the WIPO Copyright
++     Treaty adopted on December 20, 1996, and/or similar international
++     agreements.
++
++  f. Exceptions and Limitations means fair use, fair dealing, and/or
++     any other exception or limitation to Copyright and Similar Rights
++     that applies to Your use of the Licensed Material.
++
++  g. License Elements means the license attributes listed in the name
++     of a Creative Commons Public License. The License Elements of this
++     Public License are Attribution, NonCommercial, and ShareAlike.
++
++  h. Licensed Material means the artistic or literary work, database,
++     or other material to which the Licensor applied this Public
++     License.
++
++  i. Licensed Rights means the rights granted to You subject to the
++     terms and conditions of this Public License, which are limited to
++     all Copyright and Similar Rights that apply to Your use of the
++     Licensed Material and that the Licensor has authority to license.
++
++  j. Licensor means the individual(s) or entity(ies) granting rights
++     under this Public License.
++
++  k. NonCommercial means not primarily intended for or directed towards
++     commercial advantage or monetary compensation. For purposes of
++     this Public License, the exchange of the Licensed Material for
++     other material subject to Copyright and Similar Rights by digital
++     file-sharing or similar means is NonCommercial provided there is
++     no payment of monetary compensation in connection with the
++     exchange.
++
++  l. Share means to provide material to the public by any means or
++     process that requires permission under the Licensed Rights, such
++     as reproduction, public display, public performance, distribution,
++     dissemination, communication, or importation, and to make material
++     available to the public including in ways that members of the
++     public may access the material from a place and at a time
++     individually chosen by them.
++
++  m. Sui Generis Database Rights means rights other than copyright
++     resulting from Directive 96/9/EC of the European Parliament and of
++     the Council of 11 March 1996 on the legal protection of databases,
++     as amended and/or succeeded, as well as other essentially
++     equivalent rights anywhere in the world.
++
++  n. You means the individual or entity exercising the Licensed Rights
++     under this Public License. Your has a corresponding meaning.
++
++
++Section 2 -- Scope.
++
++  a. License grant.
++
++       1. Subject to the terms and conditions of this Public License,
++          the Licensor hereby grants You a worldwide, royalty-free,
++          non-sublicensable, non-exclusive, irrevocable license to
++          exercise the Licensed Rights in the Licensed Material to:
++
++            a. reproduce and Share the Licensed Material, in whole or
++               in part, for NonCommercial purposes only; and
++
++            b. produce, reproduce, and Share Adapted Material for
++               NonCommercial purposes only.
++
++       2. Exceptions and Limitations. For the avoidance of doubt, where
++          Exceptions and Limitations apply to Your use, this Public
++          License does not apply, and You do not need to comply with
++          its terms and conditions.
++
++       3. Term. The term of this Public License is specified in Section
++          6(a).
++
++       4. Media and formats; technical modifications allowed. The
++          Licensor authorizes You to exercise the Licensed Rights in
++          all media and formats whether now known or hereafter created,
++          and to make technical modifications necessary to do so. The
++          Licensor waives and/or agrees not to assert any right or
++          authority to forbid You from making technical modifications
++          necessary to exercise the Licensed Rights, including
++          technical modifications necessary to circumvent Effective
++          Technological Measures. For purposes of this Public License,
++          simply making modifications authorized by this Section 2(a)
++          (4) never produces Adapted Material.
++
++       5. Downstream recipients.
++
++            a. Offer from the Licensor -- Licensed Material. Every
++               recipient of the Licensed Material automatically
++               receives an offer from the Licensor to exercise the
++               Licensed Rights under the terms and conditions of this
++               Public License.
++
++            b. Additional offer from the Licensor -- Adapted Material.
++               Every recipient of Adapted Material from You
++               automatically receives an offer from the Licensor to
++               exercise the Licensed Rights in the Adapted Material
++               under the conditions of the Adapter's License You apply.
++
++            c. No downstream restrictions. You may not offer or impose
++               any additional or different terms or conditions on, or
++               apply any Effective Technological Measures to, the
++               Licensed Material if doing so restricts exercise of the
++               Licensed Rights by any recipient of the Licensed
++               Material.
++
++       6. No endorsement. Nothing in this Public License constitutes or
++          may be construed as permission to assert or imply that You
++          are, or that Your use of the Licensed Material is, connected
++          with, or sponsored, endorsed, or granted official status by,
++          the Licensor or others designated to receive attribution as
++          provided in Section 3(a)(1)(A)(i).
++
++  b. Other rights.
++
++       1. Moral rights, such as the right of integrity, are not
++          licensed under this Public License, nor are publicity,
++          privacy, and/or other similar personality rights; however, to
++          the extent possible, the Licensor waives and/or agrees not to
++          assert any such rights held by the Licensor to the limited
++          extent necessary to allow You to exercise the Licensed
++          Rights, but not otherwise.
++
++       2. Patent and trademark rights are not licensed under this
++          Public License.
++
++       3. To the extent possible, the Licensor waives any right to
++          collect royalties from You for the exercise of the Licensed
++          Rights, whether directly or through a collecting society
++          under any voluntary or waivable statutory or compulsory
++          licensing scheme. In all other cases the Licensor expressly
++          reserves any right to collect such royalties, including when
++          the Licensed Material is used other than for NonCommercial
++          purposes.
++
++
++Section 3 -- License Conditions.
++
++Your exercise of the Licensed Rights is expressly made subject to the
++following conditions.
++
++  a. Attribution.
++
++       1. If You Share the Licensed Material (including in modified
++          form), You must:
++
++            a. retain the following if it is supplied by the Licensor
++               with the Licensed Material:
++
++                 i. identification of the creator(s) of the Licensed
++                    Material and any others designated to receive
++                    attribution, in any reasonable manner requested by
++                    the Licensor (including by pseudonym if
++                    designated);
++
++                ii. a copyright notice;
++
++               iii. a notice that refers to this Public License;
++
++                iv. a notice that refers to the disclaimer of
++                    warranties;
++
++                 v. a URI or hyperlink to the Licensed Material to the
++                    extent reasonably practicable;
++
++            b. indicate if You modified the Licensed Material and
++               retain an indication of any previous modifications; and
++
++            c. indicate the Licensed Material is licensed under this
++               Public License, and include the text of, or the URI or
++               hyperlink to, this Public License.
++
++       2. You may satisfy the conditions in Section 3(a)(1) in any
++          reasonable manner based on the medium, means, and context in
++          which You Share the Licensed Material. For example, it may be
++          reasonable to satisfy the conditions by providing a URI or
++          hyperlink to a resource that includes the required
++          information.
++
++       3. If requested by the Licensor, You must remove any of the
++          information required by Section 3(a)(1)(A) to the extent
++          reasonably practicable.
++
++  b. ShareAlike.
++
++     In addition to the conditions in Section 3(a), if You Share
++     Adapted Material You produce, the following conditions also apply.
++
++       1. The Adapter's License You apply must be a Creative Commons
++          license with the same License Elements, this version or
++          later, or a BY-NC-SA Compatible License.
++
++       2. You must include the text of, or the URI or hyperlink to, the
++          Adapter's License You apply. You may satisfy this condition
++          in any reasonable manner based on the medium, means, and
++          context in which You Share Adapted Material.
++
++       3. You may not offer or impose any additional or different terms
++          or conditions on, or apply any Effective Technological
++          Measures to, Adapted Material that restrict exercise of the
++          rights granted under the Adapter's License You apply.
++
++
++Section 4 -- Sui Generis Database Rights.
++
++Where the Licensed Rights include Sui Generis Database Rights that
++apply to Your use of the Licensed Material:
++
++  a. for the avoidance of doubt, Section 2(a)(1) grants You the right
++     to extract, reuse, reproduce, and Share all or a substantial
++     portion of the contents of the database for NonCommercial purposes
++     only;
++
++  b. if You include all or a substantial portion of the database
++     contents in a database in which You have Sui Generis Database
++     Rights, then the database in which You have Sui Generis Database
++     Rights (but not its individual contents) is Adapted Material,
++     including for purposes of Section 3(b); and
++
++  c. You must comply with the conditions in Section 3(a) if You Share
++     all or a substantial portion of the contents of the database.
++
++For the avoidance of doubt, this Section 4 supplements and does not
++replace Your obligations under this Public License where the Licensed
++Rights include other Copyright and Similar Rights.
++
++
++Section 5 -- Disclaimer of Warranties and Limitation of Liability.
++
++  a. UNLESS OTHERWISE SEPARATELY UNDERTAKEN BY THE LICENSOR, TO THE
++     EXTENT POSSIBLE, THE LICENSOR OFFERS THE LICENSED MATERIAL AS-IS
++     AND AS-AVAILABLE, AND MAKES NO REPRESENTATIONS OR WARRANTIES OF
++     ANY KIND CONCERNING THE LICENSED MATERIAL, WHETHER EXPRESS,
++     IMPLIED, STATUTORY, OR OTHER. THIS INCLUDES, WITHOUT LIMITATION,
++     WARRANTIES OF TITLE, MERCHANTABILITY, FITNESS FOR A PARTICULAR
++     PURPOSE, NON-INFRINGEMENT, ABSENCE OF LATENT OR OTHER DEFECTS,
++     ACCURACY, OR THE PRESENCE OR ABSENCE OF ERRORS, WHETHER OR NOT
++     KNOWN OR DISCOVERABLE. WHERE DISCLAIMERS OF WARRANTIES ARE NOT
++     ALLOWED IN FULL OR IN PART, THIS DISCLAIMER MAY NOT APPLY TO YOU.
++
++  b. TO THE EXTENT POSSIBLE, IN NO EVENT WILL THE LICENSOR BE LIABLE
++     TO YOU ON ANY LEGAL THEORY (INCLUDING, WITHOUT LIMITATION,
++     NEGLIGENCE) OR OTHERWISE FOR ANY DIRECT, SPECIAL, INDIRECT,
++     INCIDENTAL, CONSEQUENTIAL, PUNITIVE, EXEMPLARY, OR OTHER LOSSES,
++     COSTS, EXPENSES, OR DAMAGES ARISING OUT OF THIS PUBLIC LICENSE OR
++     USE OF THE LICENSED MATERIAL, EVEN IF THE LICENSOR HAS BEEN
++     ADVISED OF THE POSSIBILITY OF SUCH LOSSES, COSTS, EXPENSES, OR
++     DAMAGES. WHERE A LIMITATION OF LIABILITY IS NOT ALLOWED IN FULL OR
++     IN PART, THIS LIMITATION MAY NOT APPLY TO YOU.
++
++  c. The disclaimer of warranties and limitation of liability provided
++     above shall be interpreted in a manner that, to the extent
++     possible, most closely approximates an absolute disclaimer and
++     waiver of all liability.
++
++
++Section 6 -- Term and Termination.
++
++  a. This Public License applies for the term of the Copyright and
++     Similar Rights licensed here. However, if You fail to comply with
++     this Public License, then Your rights under this Public License
++     terminate automatically.
++
++  b. Where Your right to use the Licensed Material has terminated under
++     Section 6(a), it reinstates:
++
++       1. automatically as of the date the violation is cured, provided
++          it is cured within 30 days of Your discovery of the
++          violation; or
++
++       2. upon express reinstatement by the Licensor.
++
++     For the avoidance of doubt, this Section 6(b) does not affect any
++     right the Licensor may have to seek remedies for Your violations
++     of this Public License.
++
++  c. For the avoidance of doubt, the Licensor may also offer the
++     Licensed Material under separate terms or conditions or stop
++     distributing the Licensed Material at any time; however, doing so
++     will not terminate this Public License.
++
++  d. Sections 1, 5, 6, 7, and 8 survive termination of this Public
++     License.
++
++
++Section 7 -- Other Terms and Conditions.
++
++  a. The Licensor shall not be bound by any additional or different
++     terms or conditions communicated by You unless expressly agreed.
++
++  b. Any arrangements, understandings, or agreements regarding the
++     Licensed Material not stated herein are separate from and
++     independent of the terms and conditions of this Public License.
++
++
++Section 8 -- Interpretation.
++
++  a. For the avoidance of doubt, this Public License does not, and
++     shall not be interpreted to, reduce, limit, restrict, or impose
++     conditions on any use of the Licensed Material that could lawfully
++     be made without permission under this Public License.
++
++  b. To the extent possible, if any provision of this Public License is
++     deemed unenforceable, it shall be automatically reformed to the
++     minimum extent necessary to make it enforceable. If the provision
++     cannot be reformed, it shall be severed from this Public License
++     without affecting the enforceability of the remaining terms and
++     conditions.
++
++  c. No term or condition of this Public License will be waived and no
++     failure to comply consented to unless expressly agreed to by the
++     Licensor.
++
++  d. Nothing in this Public License constitutes or may be interpreted
++     as a limitation upon, or waiver of, any privileges and immunities
++     that apply to the Licensor or You, including from the legal
++     processes of any jurisdiction or authority.
++
++=======================================================================
++
++Creative Commons is not a party to its public licenses. Notwithstanding,
++Creative Commons may elect to apply one of its public licenses to
++material it publishes and in those instances will be considered the
++"Licensor." The text of the Creative Commons public licenses is
++dedicated to the public domain under the CC0 Public Domain Dedication.
++Except for the limited purpose of indicating that material is shared
++under a Creative Commons public license or as otherwise permitted by the
++Creative Commons policies published at creativecommons.org/policies,
++Creative Commons does not authorize the use of the trademark "Creative
++Commons" or any other trademark or logo of Creative Commons without its
++prior written consent including, without limitation, in connection with
++any unauthorized modifications to any of its public licenses or any
++other arrangements, understandings, or agreements concerning use of
++licensed material. For the avoidance of doubt, this paragraph does not
++form part of the public licenses.
++
++Creative Commons may be contacted at creativecommons.org.
 diff --git a/Makefile b/Makefile
 new file mode 100644
 index 0000000..3d45d08
@@ -78,16 +644,16 @@ index 0000000..3d45d08
 +	docker compose up -d --build
 diff --git a/README.html b/README.html
 new file mode 100644
-index 0000000..a05609b
+index 0000000..5dc1058
 --- /dev/null
 +++ b/README.html
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,117 @@
 +<!doctype html>
 +<html lang="zh-CN">
 +<head>
 +  <meta charset="utf-8">
 +  <meta name="viewport" content="width=device-width,initial-scale=1">
-+  <title>ForumDesk · Telegram Topic 私聊中转</title>
++  <title>ForumDesk · Telegram Topic 私聊中转 / DM-to-Topic Relay</title>
 +  <style>
 +    :root{--bg:#09111f;--panel:#111c2e;--line:#263650;--text:#eaf1ff;--muted:#99aac4;--brand:#59a9ff;--ok:#4bd29b;--warn:#ffcc70}
 +    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% 0,#15335a 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -101,6 +667,7 @@ index 0000000..a05609b
 +    .flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:10px;text-align:center}.flow div{padding:18px 10px;border-radius:13px;background:#15253c;border:1px solid var(--line)}.arrow{color:var(--brand);font-size:22px}
 +    pre{position:relative;margin:0;overflow:auto;background:#07101d;border:1px solid #20314a;border-radius:12px;padding:18px;color:#d8e9ff;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}.code-wrap{position:relative}.copy{position:absolute;right:10px;top:10px;z-index:2;border:1px solid #3a5477;background:#14243a;color:#dcecff;border-radius:8px;padding:6px 9px;cursor:pointer}.copy:hover{background:#1c385a}
 +    code{color:#a8d4ff}.ok{color:var(--ok)}.warn{color:var(--warn)}ol{padding-left:20px}.note{border-left:3px solid var(--brand);padding:10px 14px;background:#10243c;color:#bed6ef;border-radius:0 10px 10px 0}
++    .en{color:var(--muted);font-size:.92em}
 +    footer{margin-top:48px;color:var(--muted);font-size:13px}@media(max-width:760px){.shell{display:block;padding:20px 14px 60px}nav{position:static;margin-bottom:22px}.hero h1{font-size:34px}.grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
 +  </style>
 +</head>
@@ -108,99 +675,359 @@ index 0000000..a05609b
 +<div class="shell">
 +  <nav>
 +    <b>ForumDesk</b>
-+    <a href="#overview">项目概览</a><a href="#flow">工作流程</a><a href="#setup">首次配置</a><a href="#message-actions">编辑与删除</a><a href="#privacy">引用与内容保护</a><a href="#commands">管理员命令</a><a href="#run">启动方式</a><a href="#structure">项目结构</a><a href="#status">当前边界</a>
++    <a href="#overview">项目概览 Overview</a><a href="#flow">工作流程 Workflow</a><a href="#web-api">Web API</a><a href="#setup">首次配置 Setup</a><a href="#message-actions">编辑与删除 Edit &amp; Delete</a><a href="#clear">批量清理 Clear</a><a href="#privacy">引用与内容保护 Privacy</a><a href="#commands">管理员命令 Commands</a><a href="#run">启动方式 Run</a><a href="#structure">项目结构 Structure</a><a href="#status">当前边界 Roadmap</a>
 +  </nav>
 +  <main>
 +    <header class="hero" id="overview">
-+      <span class="tag">基础版本 · Go</span>
-+      <h1>把每位私聊用户<br>放进独立 Topic</h1>
-+      <p>用户私聊 Bot 后，ForumDesk 自动在私有超级群创建专属 Topic。用户消息进入对应 Topic，管理员在 Topic 里的回复再由 Bot 发回用户。</p>
-+      <div class="chips"><span class="chip">单用户单 Topic</span><span class="chip">双向引用</span><span class="chip">内容保护</span><span class="chip">双向编辑</span><span class="chip">双端删除</span></div>
++      <span class="tag">基础版本 Base · Go</span>
++      <h1>把每位私聊用户<br>放进独立 Topic<br><span style="font-size:.55em;color:var(--muted)">Every DM user gets a dedicated forum topic</span></h1>
++      <p>用户私聊 Bot 后，ForumDesk 自动在私有超级群创建专属 Topic。用户消息进入对应 Topic，管理员在 Topic 里的回复再由 Bot 发回用户。<br><span class="en">When a user DMs the bot, ForumDesk auto-creates a dedicated topic in a private supergroup. User messages land in that topic; agent replies are relayed back to the user.</span></p>
++      <div class="chips"><span class="chip">单用户单 Topic · One topic per user</span><span class="chip">双向引用 · Quote mapping</span><span class="chip">内容保护 · Content protection</span><span class="chip">双向编辑 · Edit sync</span><span class="chip">双端删除 · Two-side deletion</span></div>
 +    </header>
 +
-+    <section id="flow"><h2>工作流程</h2><div class="card flow"><div>Telegram 用户</div><span class="arrow">→</span><div>ForumDesk Bot</div><span class="arrow">→</span><div>客服群 Topic</div></div>
-+      <div class="grid"><div class="card"><b class="ok">用户 → 客服</b><p>首次消息创建 Topic 和用户资料卡；之后所有消息复用同一 Topic。</p></div><div class="card"><b class="ok">客服 → 用户</b><p>管理员直接在 Topic 发消息，Bot 根据 Topic 映射复制给对应用户。</p></div></div>
++    <section id="flow"><h2>工作流程 / How It Works</h2><div class="card flow"><div>Telegram 用户<br><span class="en">User</span></div><span class="arrow">→</span><div>ForumDesk Bot</div><span class="arrow">→</span><div>客服群 Topic<br><span class="en">Support Topic</span></div></div>
++      <div class="grid"><div class="card"><b class="ok">用户 → 客服 / User → Agent</b><p>首次消息创建 Topic 和用户资料卡；之后所有消息复用同一 Topic。<br><span class="en">The first message creates the topic and a profile card; all later messages reuse it.</span></p></div><div class="card"><b class="ok">客服 → 用户 / Agent → User</b><p>管理员直接在 Topic 发消息，Bot 根据 Topic 映射复制给对应用户。<br><span class="en">Agents reply directly in the topic; the bot maps the topic back to the user and delivers the message.</span></p></div></div>
 +    </section>
 +
-+    <section id="setup"><h2>首次配置</h2>
-+      <ol><li>通过 BotFather 创建 Bot 并取得 Token。</li><li>创建私有超级群，开启“话题 / Topics”。</li><li>把 Bot 设为管理员，并授予管理话题、发送消息和删除消息权限。</li><li>复制配置文件并填入 Token 与群 ID。</li></ol>
-+      <div class="code-wrap"><button class="copy" data-copy="env">复制</button><pre id="env">cp .env.example .env
++    <section id="web-api"><h2>网页客服 API / Web Support API</h2><div class="grid"><div class="card"><b class="ok">网页 → Telegram</b><p>网站后端创建访客会话，网页消息由 Bot 发到独立 Topic，并保留访客资料卡。<br><span class="en">A website backend creates the visitor session; browser messages appear in a dedicated topic through the bot.</span></p></div><div class="card"><b class="ok">Telegram → 网页</b><p>管理员或已授权成员回复后，网页通过增量游标获取客服消息。<br><span class="en">Admin and approved staff replies are exposed through cursor-based polling.</span></p></div></div><p><a href="API.html">交互式 API 文档</a> · <a href="openapi.json">OpenAPI JSON</a> · <a href="examples/web-client.html">网页客户端示例</a></p></section>
 +
-+# 编辑 .env
++    <section id="setup"><h2>首次配置 / Setup</h2>
++      <ol><li>通过 BotFather 创建 Bot 并取得 Token。<span class="en">Create a bot via @BotFather and get the token.</span></li><li>创建私有超级群，开启“话题 / Topics”。<span class="en">Create a private supergroup and enable Topics.</span></li><li>把 Bot 设为管理员，并授予管理话题、发送消息和删除消息权限。<span class="en">Add the bot as admin with Manage Topics, Send Messages, Delete Messages.</span></li><li>复制配置文件并填入 Token 与群 ID。<span class="en">Copy the config and fill in token and group ID.</span></li></ol>
++      <div class="code-wrap"><button class="copy" data-copy="env">复制 Copy</button><pre id="env">cp .env.example .env
++
++# 编辑 .env / edit .env
 +BOT_TOKEN=123456789:YOUR_TOKEN
 +SUPPORT_GROUP_ID=-1001234567890
-+DATA_FILE=./data/forumdesk.json</pre></div>
-+      <p class="note">Topic 没有独立头像。基础版会把用户头像作为 Topic 的第一张资料卡图片，视觉上实现接近的效果。</p>
++DATA_FILE=./data/forumdesk.json
++HTTP_ADDR=:8080
++WEB_API_KEY=replace-with-a-long-random-value
++WEB_ALLOWED_ORIGINS=https://www.example.com
++WEB_RATE_LIMIT_PER_MINUTE=60</pre></div>
++      <p class="note">Topic 没有独立头像。基础版会把用户头像作为 Topic 的第一张资料卡图片，视觉上实现接近的效果。<br><span class="en">Topics have no avatar; the bot uses the user's avatar as the first profile-card image to approximate one.</span></p>
 +    </section>
 +
-+    <section id="message-actions"><h2>编辑与删除</h2><div class="grid">
-+      <div class="card"><b class="ok">按方向同步编辑</b><p>客服编辑 Topic 消息时，Bot 直接修改用户看到的消息；用户编辑时，Topic 会引用原消息并追加“用户修改为”的新内容。</p></div>
-+      <div class="card"><b class="ok">删除双方消息</b><p>回复需要删除的消息并发送 <code>/delete</code> 或 <code>/del</code>，Bot 会删除两端消息及删除命令。</p></div>
-+    </div><p class="note">普通 Bot API 不会推送常规消息的删除事件，所以直接点 Telegram 的“删除”只影响当前一端。请使用回复命令触发双端删除；Telegram 的常规删除时限和管理员权限规则仍然适用。</p></section>
++    <section id="message-actions"><h2>编辑与删除 / Edit &amp; Delete</h2><div class="grid">
++      <div class="card"><b class="ok">按方向同步编辑 / Direction-aware edit sync</b><p>客服编辑 Topic 消息时，Bot 直接修改用户看到的消息；用户编辑时，Topic 会引用原消息并追加“用户修改为”的新内容。<br><span class="en">Agent edits update the user's message in place; user edits are appended in the topic with a reference to the original.</span></p></div>
++      <div class="card"><b class="ok">删除双方消息 / Two-side deletion</b><p>回复需要删除的消息并发送 <code>/delete</code> 或 <code>/del</code>，Bot 会删除两端消息及删除命令。<br><span class="en">Reply to a message with <code>/delete</code> or <code>/del</code> to remove it on both ends, including the command itself.</span></p></div>
++    </div><p class="note">普通 Bot API 不会推送常规消息的删除事件，所以直接点 Telegram 的“删除”只影响当前一端。请使用回复命令触发双端删除；Telegram 的常规删除时限和管理员权限规则仍然适用。<br><span class="en">The Bot API doesn't deliver deletion events for normal messages, so deleting via the Telegram UI only affects one side. Use the reply command for two-side removal; Telegram's deletion time limits and admin rules still apply.</span></p></section>
 +
-+    <section id="privacy"><h2>引用与内容保护</h2><div class="grid">
-+      <div class="card"><b class="ok">引用自动映射</b><p>客服在 Topic 引用历史消息时，用户端会引用对应的消息副本；用户的引用也会映射回 Topic。</p></div>
-+      <div class="card"><b class="ok">禁止截图、转发与保存</b><p>在当前用户 Topic 发送 <code>/protect on</code>，之后 Bot 发出的消息都会附带 Telegram 内容保护标记；使用 <code>/protect off</code> 关闭。</p></div>
-+    </div><div class="code-wrap"><button class="copy" data-copy="protect">复制</button><pre id="protect">/protect on
++    <section id="clear"><h2>管理员批量清理 / Batch Cleanup</h2><div class="grid">
++      <div class="card"><b class="ok">双方清空，保留资料卡 / Clear both sides, keep profile card</b><p>在目标 Topic 发送 <code>/clear</code>，再发送 <code>/clear confirm</code>。Bot 会按每批 100 条清理用户端和管理端的对话消息，包括 <code>/protect</code>、<code>/clear_user</code> 等管理命令及 Bot 响应；Topic、会话映射与首条用户资料卡继续保留。<br><span class="en">Send <code>/clear</code> then <code>/clear confirm</code> in the topic. The bot clears conversation messages on both user and admin sides in batches of 100, including admin commands like <code>/protect</code>, <code>/clear_user</code> and bot responses; the topic, session mapping, and the first profile card are kept.</span></p><div class="code-wrap"><button class="copy" data-copy="clear-code">复制 Copy</button><pre id="clear-code">/clear
++/clear confirm</pre></div></div>
++      <div class="card"><b class="ok">仅清空用户端 / Clear user side only</b><p>发送 <code>/clear_user</code> 并确认后，用户私聊页的映射消息会被清理，管理端 Topic 历史和资料卡均保留。<br><span class="en">Send <code>/clear_user</code> and confirm to clear mapped messages in the user's DM; admin topic history and the profile card are kept.</span></p><div class="code-wrap"><button class="copy" data-copy="clear-user-code">复制 Copy</button><pre id="clear-user-code">/clear_user
++/clear_user confirm</pre></div></div>
++    </div><p class="note">两种命令均只在管理员 Topic 生效。用户端命令菜单仅包含单条删除；Telegram 的常规删除时限和权限规则仍然适用。<br><span class="en">Both commands only work in admin topics. The user-side menu only includes single-message deletion; Telegram's deletion time limits and permission rules still apply.</span></p></section>
++
++    <section id="privacy"><h2>引用与内容保护 / Quotes &amp; Content Protection</h2><div class="grid">
++      <div class="card"><b class="ok">引用自动映射 / Automatic quote mapping</b><p>客服在 Topic 引用历史消息时，用户端会引用对应的消息副本；用户的引用也会映射回 Topic。<br><span class="en">When an agent quotes a message in the topic, the user sees a quote of their own copy; user quotes map back to the topic.</span></p></div>
++      <div class="card"><b class="ok">禁止转发与保存 / No forwarding or saving</b><p>在当前用户 Topic 发送 <code>/protect on</code>，之后 Bot 发出的消息都会附带 Telegram 内容保护标记；使用 <code>/protect off</code> 关闭。<br><span class="en">Send <code>/protect on</code> in a user's topic and all subsequent bot messages carry Telegram's protect-content flag; use <code>/protect off</code> to disable.</span></p></div>
++    </div><div class="code-wrap"><button class="copy" data-copy="protect">复制 Copy</button><pre id="protect">/protect on
 +/protect off
-+/protect</pre></div><p class="note">Bot 私聊采用逐条消息保护，开关状态和提示只显示在管理员 Topic；用户端不接收保护状态通知。用户自己发出的原始消息和已有消息维持原状态。</p></section>
++/protect</pre></div><p class="note">Bot 私聊采用逐条消息保护，开关状态和提示只显示在管理员 Topic；用户端不接收保护状态通知。Telegram 将 <code>protect_content</code> 定义为发送时参数，所以已有消息保持原状态，程序不替换或重发历史消息。<br><span class="en">Protection applies per-message in DMs; status and hints only appear in the admin topic — users receive no notification. Telegram defines <code>protect_content</code> as a send-time parameter, so existing messages keep their original state and are never replaced or resent.</span></p></section>
 +
-+    <section id="commands"><h2>管理员命令菜单</h2><div class="card"><p>程序启动时自动调用 Telegram <code>setMyCommands</code>，并只给客服群管理员注册命令。管理员在 Topic 输入 <code>/</code> 后会看到：</p><ul><li><code>/protect</code> — 查看或设置内容保护</li><li><code>/delete</code> — 回复消息后双端删除</li><li><code>/help</code> — 显示完整说明</li></ul></div></section>
++    <section id="commands"><h2>管理员命令菜单 / Admin Command Menu</h2><div class="card"><p>程序启动时自动调用 Telegram <code>setMyCommands</code>。管理员在 Topic 输入 <code>/</code> 后会看到：<br><span class="en">The bot calls Telegram <code>setMyCommands</code> on startup. Admins typing <code>/</code> in a topic will see:</span></p><ul><li><code>/protect</code> — 查看或设置后续消息保护 / View or toggle protection for subsequent messages</li><li><code>/delete</code> — 回复消息后双端删除 / Delete a replied message on both ends</li><li><code>/clear</code> — 清空双方消息并保留资料卡 / Clear both sides, keep profile card</li><li><code>/clear_user</code> — 仅清空用户端 / Clear user side only</li><li><code>/allow_staff</code> / <code>/deny_staff</code> — 按 Topic 授权或取消成员外发</li><li><code>/show</code> / <code>/hide</code> — 单条消息对客可见或仅内部可见</li><li><code>/staff</code> — 查看当前 Topic 授权成员</li><li>可见性授权控制消息是否外发；群内 Topic 的浏览范围由 Telegram 群权限负责</li><li><code>/help</code> — 显示完整说明 / Show full help</li></ul><p>用户私聊输入 <code>/</code> 时只显示 <code>/delete</code> 和 <code>/help</code>。<br><span class="en">Users only see <code>/delete</code> and <code>/help</code> in their private chat.</span></p></div></section>
 +
-+    <section id="run"><h2>启动方式</h2>
-+      <div class="grid"><div class="card"><b>本机运行</b><p>适合开发调试。</p><div class="code-wrap"><button class="copy" data-copy="local">复制</button><pre id="local">set -a
++    <section id="run"><h2>启动方式 / Run</h2>
++      <div class="grid"><div class="card"><b>本机运行 / Local</b><p>适合开发调试。<span class="en">For development.</span></p><div class="code-wrap"><button class="copy" data-copy="local">复制 Copy</button><pre id="local">set -a
 +source .env
 +set +a
 +go run ./cmd/forumdesk</pre></div></div>
-+      <div class="card"><b>Docker Compose</b><p>适合常驻部署。</p><div class="code-wrap"><button class="copy" data-copy="docker">复制</button><pre id="docker">docker compose up -d --build
++      <div class="card"><b>Docker Compose</b><p>适合常驻部署。<span class="en">For long-running deployment.</span></p><div class="code-wrap"><button class="copy" data-copy="docker">复制 Copy</button><pre id="docker">docker compose up -d --build
 +docker compose logs -f</pre></div></div></div>
-+      <div class="card"><b>质量检查</b><div class="code-wrap"><button class="copy" data-copy="quality">复制</button><pre id="quality">go test ./...
++      <div class="card"><b>质量检查 / Quality Checks</b><div class="code-wrap"><button class="copy" data-copy="quality">复制 Copy</button><pre id="quality">go test ./...
 +go vet ./...
 +make coverage</pre></div></div>
 +    </section>
 +
-+    <section id="structure"><h2>项目结构</h2><div class="code-wrap"><button class="copy" data-copy="tree">复制</button><pre id="tree">cmd/forumdesk/       程序入口
-+internal/app/        长轮询运行器
-+internal/bot/        Topic 双向路由
-+internal/config/     环境变量配置
-+internal/store/      JSON 原子持久化
-+internal/telegram/   Telegram Bot API 客户端
-+data/                运行数据（自动创建）</pre></div></section>
++    <section id="structure"><h2>项目结构 / Project Structure</h2><div class="code-wrap"><button class="copy" data-copy="tree">复制 Copy</button><pre id="tree">cmd/forumdesk/       程序入口 / entrypoint
++internal/app/        长轮询运行器 / long-polling runner
++internal/bot/        Topic 双向路由 / two-way topic routing
++internal/config/     环境变量配置 / env config
++internal/store/      JSON 原子持久化 / atomic JSON persistence
++internal/telegram/   Telegram Bot API 客户端 / Bot API client
++internal/webapi/     网页客服 REST API / web support API
++API.html             交互式 API 文档 / interactive API docs
++openapi.json         OpenAPI 3.1 规格
++examples/            网页接入示例 / browser example
++data/                运行数据（自动创建）/ runtime data (auto-created)</pre></div></section>
 +
-+    <section id="status"><h2>当前基础能力与边界</h2><div class="grid">
-+      <div class="card"><b class="ok">已经具备</b><ul><li>自动创建和复用 Topic</li><li>文本、图片、语音、视频、文件等消息复制</li><li>客服与用户双向引用映射</li><li>按 Topic 开关禁止转发/保存</li><li>定向编辑、双端删除和失败提示</li></ul></div>
-+      <div class="card"><b class="warn">后续增强</b><ul><li>封禁、关闭会话和客服认领按钮</li><li>相册批量消息保持分组</li><li>PostgreSQL 多实例部署</li><li>监控、速率限制和管理后台</li></ul></div>
++    <section id="status"><h2>当前基础能力与边界 / Capabilities &amp; Roadmap</h2><div class="grid">
++      <div class="card"><b class="ok">已经具备 / Available</b><ul><li>自动创建和复用 Topic / Auto topic creation &amp; reuse</li><li>文本、图片、语音、视频、文件等消息复制 / Text, photo, voice, video, document relay</li><li>客服与用户双向引用映射 / Two-way quote mapping</li><li>按 Topic 开关禁止转发/保存 / Per-topic content protection</li><li>单条双端删除 / Single-message two-side deletion</li><li>保留资料卡的双端清空与仅用户端清空 / Two-side or user-only clear keeping the profile card</li></ul></div>
++      <div class="card"><b class="warn">后续增强 / Roadmap</b><ul><li>封禁、关闭会话和客服认领按钮 / Ban, close &amp; claim buttons</li><li>相册批量消息保持分组 / Album grouping</li><li>PostgreSQL 多实例部署 / PostgreSQL multi-instance</li><li>监控、客服认领统计和管理后台 / Metrics, assignment analytics &amp; admin dashboard</li></ul></div>
 +    </div></section>
-+    <footer>ForumDesk 基础版 · 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。</footer>
++    <footer>ForumDesk 基础版 Base · 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。 / Config via environment variables only; the bot token is never written to code or data files.</footer>
 +  </main>
 +</div>
 +<script>
 +  document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{
 +    const text=document.getElementById(button.dataset.copy).innerText;
-+    await navigator.clipboard.writeText(text);const old=button.textContent;button.textContent='已复制';setTimeout(()=>button.textContent=old,1200);
++    await navigator.clipboard.writeText(text);const old=button.textContent;button.textContent='已复制 Copied';setTimeout(()=>button.textContent=old,1200);
 +  }));
 +</script>
 +</body></html>
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..83b0953
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,118 @@
++# ForumDesk · Telegram 客服私聊中转 Bot / Telegram Customer Service Bot
++
++[English README](README_EN.md) | [图文文档 / Visual Docs](README.html)
++
++[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
++
++**许可证 / License**: [CC BY-NC-SA 4.0](LICENSE) — 禁止商用。允许使用、修改、分发，但必须署名、非商用、衍生作品采用相同许可证。Commercial use is prohibited; you may use, modify, and distribute with attribution, non-commercially, under the same license.
++
++一个自托管的 Telegram 客服机器人：把每位私聊用户放进私有超级群的独立 Topic（话题），客服在 Topic 里回复，Bot 自动双向中转。
++
++A self-hosted Telegram customer service bot: each private chat user gets a dedicated forum topic in a private supergroup. Agents reply inside the topic, and the bot relays messages both ways.
++
++---
++
++## 功能特性 / Features
++
++- **单用户单 Topic / One topic per user** — 用户首次私聊自动创建专属 Topic 和资料卡；之后所有消息复用同一 Topic。First message auto-creates a dedicated topic with a profile card; later messages reuse it.
++- **双向消息中转 / Two-way relay** — 文本、图片、语音、视频、文件等消息双向复制。Relays text, photos, voice, video, documents, etc. in both directions.
++- **双向引用映射 / Quote mapping** — 客服在 Topic 引用历史消息，用户端引用对应副本；用户引用也映射回 Topic。Replies/quotes are mapped across both sides.
++- **双向编辑同步 / Edit sync** — 客服编辑直接修改用户端消息；用户编辑会在 Topic 引用原消息并追加新内容。Agent edits update the user's message in place; user edits are appended with a quote.
++- **双端删除与批量清理 / Two-side deletion & cleanup** — 回复消息发送 `/delete` 删除两端消息；`/clear` 清空双方对话并保留资料卡；`/clear_user` 仅清空用户端。`/delete` removes a message on both ends; `/clear` wipes both sides keeping the profile card; `/clear_user` clears the user side only.
++- **内容保护 / Content protection** — `/protect on` 后发出的消息禁止转发、保存与截图。`/protect on` marks outgoing messages with Telegram content protection.
++- **命令菜单 / Command menu** — 启动时自动注册 `setMyCommands`，管理员与用户看到不同菜单。Auto-registers scoped command menus on startup.
++
++## 工作流程 / How It Works
++
++```
++Telegram 用户 User  →  ForumDesk Bot  →  客服群 Topic / Support Group Topic
++```
++
++- 用户 → 客服：所有私聊消息进入该用户的 Topic。User → Agent: every DM lands in the user's topic.
++- 客服 → 用户：管理员在 Topic 直接回复，Bot 按 Topic 映射发回用户。Agent → User: agents reply in the topic; the bot forwards to the mapped user.
++
++## 首次配置 / Setup
++
++1. 通过 @BotFather 创建 Bot 并取得 Token。Create a bot via @BotFather and get the token.
++2. 创建私有超级群，开启「话题 / Topics」。Create a private supergroup and enable Topics.
++3. 把 Bot 设为管理员，授予管理话题、发送消息、删除消息权限。Add the bot as admin with Manage Topics, Send Messages, Delete Messages.
++4. 复制配置并填入 Token 与群 ID。Copy the config and fill in token and group ID:
++
++```bash
++cp .env.example .env
++
++# 编辑 .env / edit .env
++BOT_TOKEN=123456789:YOUR_TOKEN
++SUPPORT_GROUP_ID=-1001234567890
++DATA_FILE=./data/forumdesk.json
++```
++
++> Topic 没有独立头像，基础版会把用户头像作为 Topic 的第一张资料卡图片。
++> Topics have no avatar; the bot uses the user's avatar as the first profile-card image instead.
++
++## 启动 / Run
++
++本机运行 / Local:
++
++```bash
++set -a
++source .env
++set +a
++go run ./cmd/forumdesk
++```
++
++Docker Compose:
++
++```bash
++docker compose up -d --build
++docker compose logs -f
++```
++
++使用预构建镜像 / Use the prebuilt image (push 后自动构建发布到 GHCR / auto-built and published to GHCR on every push):
++
++```bash
++docker pull ghcr.io/paipaiio/telegram-customer-service-bot:latest
++```
++
++质量检查 / Checks:
++
++```bash
++go test ./...
++go vet ./...
++make coverage
++```
++
++## 管理员命令 / Admin Commands
++
++在 Topic 内使用 / Used inside a topic:
++
++| 命令 Command | 说明 Description |
++|---|---|
++| `/protect` [on/off] | 查看或设置内容保护 / View or toggle content protection |
++| `/delete`, `/del` | 回复消息后双端删除 / Delete a replied message on both ends |
++| `/clear` + `/clear confirm` | 清空双方消息并保留资料卡 / Clear both sides, keep profile card |
++| `/clear_user` + confirm | 仅清空用户端 / Clear user side only |
++| `/help` | 显示完整说明 / Show full help |
++
++用户私聊只显示 `/delete` 和 `/help`。Users only see `/delete` and `/help`.
++
++## 项目结构 / Project Structure
++
++```
++cmd/forumdesk/       程序入口 / entrypoint
++internal/app/        长轮询运行器 / long-polling runner
++internal/bot/        Topic 双向路由 / two-way topic routing
++internal/config/     环境变量配置 / env config
++internal/store/      JSON 原子持久化 / atomic JSON persistence
++internal/telegram/   Telegram Bot API 客户端 / Bot API client
++data/                运行数据（自动创建）/ runtime data (auto-created)
++```
++
++## 已知边界 / Known Limitations
++
++- 普通 Bot API 不推送常规消息的删除事件，直接点 Telegram 的「删除」只影响当前一端，请用 `/delete` 触发双端删除。
++  The Bot API doesn't deliver deletion events for normal messages — use `/delete` for two-side removal.
++- 相册批量消息暂未保持分组；封禁、会话关闭、PostgreSQL 多实例等在路线图中。
++  Album grouping, ban/close actions, and PostgreSQL multi-instance support are on the roadmap.
++- 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。
++  Config is injected via environment variables only; the bot token is never written to code or data files.
+diff --git a/README_EN.md b/README_EN.md
+new file mode 100644
+index 0000000..2766e8a
+--- /dev/null
++++ b/README_EN.md
+@@ -0,0 +1,110 @@
++# ForumDesk · Telegram Customer Service Bot
++
++[中文说明 / Chinese README](README.md) | [图文文档 / Visual Docs](README.html)
++
++[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
++
++**License**: [CC BY-NC-SA 4.0](LICENSE) — commercial use is prohibited. You may use, modify, and distribute with attribution, non-commercially, under the same license.
++
++A self-hosted Telegram customer service bot written in Go. Each user who DMs your bot gets a dedicated forum topic in a private support supergroup. Agents reply inside the topic, and the bot relays messages both ways — with quote mapping, edit sync, two-side deletion, and content protection.
++
++## Features
++
++- **One topic per user** — the first DM auto-creates a dedicated forum topic plus a profile card (with the user's avatar); all later messages reuse the same topic.
++- **Two-way relay** — text, photos, voice, video, documents, and other message types are copied in both directions.
++- **Quote mapping** — when an agent quotes a message in the topic, the user sees a quote of their own copy, and user quotes map back to the topic.
++- **Edit sync** — agent edits update the user's message in place; user edits are appended in the topic with a reference to the original.
++- **Two-side deletion & cleanup** — reply with `/delete` to remove a message on both ends; `/clear` wipes the conversation on both sides while keeping the profile card; `/clear_user` clears the user side only.
++- **Content protection** — `/protect on` marks all outgoing messages with Telegram's protect-content flag (no forwarding, saving, or screenshots).
++- **Scoped command menus** — `setMyCommands` is called on startup; admins and users see different menus.
++
++## How It Works
++
++```
++Telegram User  →  ForumDesk Bot  →  Support Group Topic
++```
++
++- **User → Agent**: every private message lands in that user's topic.
++- **Agent → User**: agents simply reply in the topic; the bot maps the topic back to the user and delivers the message.
++
++## Setup
++
++1. Create a bot via [@BotFather](https://t.me/BotFather) and get the token.
++2. Create a private supergroup and enable **Topics**.
++3. Add the bot as an administrator with **Manage Topics**, **Send Messages**, and **Delete Messages** permissions.
++4. Configure via environment variables:
++
++```bash
++cp .env.example .env
++
++# edit .env
++BOT_TOKEN=123456789:YOUR_TOKEN
++SUPPORT_GROUP_ID=-1001234567890
++DATA_FILE=./data/forumdesk.json
++```
++
++> Forum topics have no avatar; the bot uses the user's avatar as the first profile-card image to approximate one.
++
++## Run
++
++Local:
++
++```bash
++set -a
++source .env
++set +a
++go run ./cmd/forumdesk
++```
++
++Docker Compose:
++
++```bash
++docker compose up -d --build
++docker compose logs -f
++```
++
++Or use the prebuilt image (auto-built and published to GHCR on every push to `main`):
++
++```bash
++docker pull ghcr.io/paipaiio/telegram-customer-service-bot:latest
++```
++
++Quality checks:
++
++```bash
++go test ./...
++go vet ./...
++make coverage
++```
++
++## Admin Commands
++
++Used inside a user's topic:
++
++| Command | Description |
++|---|---|
++| `/protect` [on/off] | View or toggle content protection for this user |
++| `/delete`, `/del` | Reply to a message to delete it on both ends |
++| `/clear` + `/clear confirm` | Clear messages on both sides, keeping the topic and profile card |
++| `/clear_user` + confirm | Clear the user side only; admin topic history is kept |
++| `/help` | Show full help |
++
++Users only see `/delete` and `/help` in their private chat menu.
++
++## Project Structure
++
++```
++cmd/forumdesk/       entrypoint
++internal/app/        long-polling runner
++internal/bot/        two-way topic routing
++internal/config/     environment-based config
++internal/store/      atomic JSON persistence
++internal/telegram/   Telegram Bot API client
++data/                runtime data (auto-created)
++```
++
++## Known Limitations
++
++- The Bot API does not deliver deletion events for normal messages — deleting via the Telegram UI only affects one side. Use `/delete` for two-side removal. Telegram's deletion time limits and admin permission rules still apply.
++- Album (media group) batching is not yet preserved; ban/close conversation actions, agent-claim buttons, PostgreSQL multi-instance deployment, and an admin dashboard are on the roadmap.
++- Config is injected via environment variables only — the bot token is never written to code or data files.
 diff --git a/cmd/forumdesk/main.go b/cmd/forumdesk/main.go
 new file mode 100644
-index 0000000..fd644c3
+index 0000000..1272fbc
 --- /dev/null
 +++ b/cmd/forumdesk/main.go
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,66 @@
 +package main
 +
 +import (
 +	"context"
 +	"log"
++	"net/http"
 +	"os"
 +	"os/signal"
 +	"syscall"
++	"time"
 +
 +	"forumdesk/internal/app"
 +	"forumdesk/internal/bot"
 +	"forumdesk/internal/config"
 +	"forumdesk/internal/store"
 +	"forumdesk/internal/telegram"
++	"forumdesk/internal/webapi"
 +)
 +
 +func main() {
@@ -219,27 +1046,68 @@ index 0000000..fd644c3
 +	if err := api.SetAdminCommands(ctx, cfg.SupportGroupID); err != nil {
 +		log.Printf("register admin commands: %v", err)
 +	}
++	if err := api.SetPrivateCommands(ctx); err != nil {
++		log.Printf("register private commands: %v", err)
++	}
++	httpServer := &http.Server{
++		Addr: cfg.HTTPAddr,
++		Handler: webapi.New(webapi.Config{
++			APIKey: cfg.WebAPIKey, SupportGroupID: cfg.SupportGroupID,
++			AllowedOrigins: cfg.WebAllowedOrigins, RateLimitPerMinute: cfg.WebRateLimitPerMinute,
++		}, s, api),
++		ReadHeaderTimeout: 5 * time.Second,
++		ReadTimeout:       15 * time.Second,
++		WriteTimeout:      30 * time.Second,
++		IdleTimeout:       60 * time.Second,
++	}
++	go func() {
++		log.Printf("ForumDesk web API listening on %s", cfg.HTTPAddr)
++		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
++			log.Printf("web API: %v", err)
++			stop()
++		}
++	}()
 +
 +	log.Printf("ForumDesk started; support group=%d data=%s", cfg.SupportGroupID, cfg.DataFile)
 +	app.Run(ctx, log.Default(), api, handler)
++	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
++	defer cancel()
++	if err := httpServer.Shutdown(shutdownContext); err != nil {
++		log.Printf("web API shutdown: %v", err)
++	}
 +	log.Print("ForumDesk stopped")
 +}
 diff --git a/compose.yaml b/compose.yaml
 new file mode 100644
-index 0000000..d94fff0
+index 0000000..47a4be3
 --- /dev/null
 +++ b/compose.yaml
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,12 @@
 +services:
 +  forumdesk:
 +    build: .
 +    restart: unless-stopped
 +    env_file: .env
++    ports:
++      - "8080:8080"
 +    volumes:
 +      - forumdesk-data:/app/data
 +
 +volumes:
 +  forumdesk-data:
+diff --git a/examples/web-client.html b/examples/web-client.html
+new file mode 100644
+index 0000000..a0dd524
+--- /dev/null
++++ b/examples/web-client.html
+@@ -0,0 +1,7 @@
++<!doctype html>
++<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ForumDesk 网页客服示例</title>
++<style>
++body{margin:0;background:#091322;color:#ecf5ff;font:15px system-ui}.chat{max-width:520px;margin:30px auto;border:1px solid #29415f;border-radius:18px;overflow:hidden;background:#101e31}.head{padding:16px 18px;background:#173252;font-weight:700}.setup,.send{display:grid;gap:8px;padding:14px}.setup{grid-template-columns:1fr}input,button{border:1px solid #365778;border-radius:9px;padding:11px;background:#0a1727;color:#fff}button{background:#2377c9;cursor:pointer}.messages{height:380px;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:9px}.bubble{max-width:82%;padding:10px 12px;border-radius:13px;background:#20344d;cursor:pointer}.staff{align-self:flex-start}.customer{align-self:flex-end;background:#21659b}.quote{border-left:3px solid #72b8ee;padding:4px 7px;margin-bottom:5px;color:#b8d7ed;font-size:12px}.send{grid-template-columns:1fr auto}.replying{display:none;margin:0 14px;padding:8px 10px;background:#162a40;border-radius:8px;color:#b8d7ed}.replying.on{display:flex;justify-content:space-between}.cancel{border:0;background:transparent;padding:0;color:#fff}.hint{color:#9eb2ca;font-size:12px;padding:0 14px 12px}
++</style></head><body><div class="chat"><div class="head">ForumDesk 网页客服</div><div class="setup"><input id="base" placeholder="API Base URL"><input id="conversation" placeholder="Conversation ID"><input id="token" type="password" placeholder="Visitor Token"><button id="connect">连接</button></div><div class="messages" id="messages"></div><div class="replying" id="replying"><span id="reply-label"></span><button class="cancel" id="cancel-reply">×</button></div><div class="send"><input id="text" maxlength="4000" placeholder="输入消息"><button id="send">发送</button></div><div class="hint">点击一条消息可引用回复。示例页只保存在当前内存；正式网站由后端注入会话 ID 和访客 Token。</div></div><script>
++let cursor=0,timer,replyTo='';const byId=new Map(),messageData=new Map();const $=id=>document.getElementById(id);function config(){return{base:$('base').value.replace(/\/$/,''),id:$('conversation').value,token:$('token').value}}function selectReply(m){replyTo=m.id;$('reply-label').textContent=`回复：${m.text.slice(0,60)}`;$('replying').classList.add('on');$('text').focus()}function clearReply(){replyTo='';$('replying').classList.remove('on')}function render(m){if(m.event==='message_hidden'){byId.get(m.target_message_id)?.remove();byId.delete(m.target_message_id);messageData.delete(m.target_message_id);if(replyTo===m.target_message_id)clearReply();return}const el=document.createElement('div');el.className=`bubble ${m.direction}`;if(m.reply_to_message_id){const quoted=messageData.get(m.reply_to_message_id);const q=document.createElement('div');q.className='quote';q.textContent=quoted?quoted.text.slice(0,80):'引用消息';el.append(q)}const text=document.createElement('div');text.textContent=(m.staff_name?`${m.staff_name}: `:'')+m.text;el.append(text);el.onclick=()=>selectReply(m);byId.set(m.id,el);messageData.set(m.id,m);$('messages').append(el);$('messages').scrollTop=$('messages').scrollHeight}async function poll(){const c=config();if(!c.base||!c.id||!c.token)return;const r=await fetch(`${c.base}/api/v1/conversations/${c.id}/messages?after=${cursor}&limit=50`,{headers:{Authorization:`Bearer ${c.token}`}});if(!r.ok)return;const p=await r.json();p.data.forEach(render);cursor=p.meta.next_cursor}function start(){clearInterval(timer);cursor=0;$('messages').replaceChildren();byId.clear();messageData.clear();clearReply();poll();timer=setInterval(poll,2000)}$('connect').onclick=start;$('cancel-reply').onclick=clearReply;$('send').onclick=async()=>{const c=config(),text=$('text').value.trim();if(!text)return;const body={text};if(replyTo)body.reply_to_message_id=replyTo;const r=await fetch(`${c.base}/api/v1/conversations/${c.id}/messages`,{method:'POST',headers:{Authorization:`Bearer ${c.token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.ok){$('text').value='';clearReply();await poll()}};$('text').addEventListener('keydown',e=>{if(e.key==='Enter')$('send').click()});
++</script></body></html>
 diff --git a/go.mod b/go.mod
 new file mode 100644
 index 0000000..3911c06
@@ -416,16 +1284,19 @@ index 0000000..1be94fc
 +}
 diff --git a/internal/bot/handler.go b/internal/bot/handler.go
 new file mode 100644
-index 0000000..4118739
+index 0000000..1e8f767
 --- /dev/null
 +++ b/internal/bot/handler.go
-@@ -0,0 +1,346 @@
+@@ -0,0 +1,790 @@
 +package bot
 +
 +import (
 +	"context"
++	"crypto/rand"
++	"encoding/hex"
 +	"errors"
 +	"fmt"
++	"strconv"
 +	"strings"
 +	"time"
 +
@@ -435,6 +1306,12 @@ index 0000000..4118739
 +type Conversation struct {
 +	UserID         int64     `json:"user_id"`
 +	TopicID        int       `json:"topic_id"`
++	PublicID       string    `json:"public_id,omitempty"`
++	Channel        string    `json:"channel,omitempty"`
++	VisitorToken   string    `json:"visitor_token_hash,omitempty"`
++	VisitorEmail   string    `json:"visitor_email,omitempty"`
++	ExternalID     string    `json:"external_id,omitempty"`
++	PageURL        string    `json:"page_url,omitempty"`
 +	DisplayName    string    `json:"display_name"`
 +	Username       string    `json:"username,omitempty"`
 +	CreatedAt      time.Time `json:"created_at,omitempty"`
@@ -445,7 +1322,25 @@ index 0000000..4118739
 +	UserID         int64     `json:"user_id"`
 +	UserMessageID  int       `json:"user_message_id"`
 +	TopicMessageID int       `json:"topic_message_id"`
++	WebMessageID   string    `json:"web_message_id,omitempty"`
++	Hidden         bool      `json:"hidden,omitempty"`
 +	CreatedAt      time.Time `json:"created_at"`
++}
++
++type WebMessage struct {
++	ID               string    `json:"id"`
++	ConversationID   string    `json:"conversation_id"`
++	ReplyToMessageID string    `json:"reply_to_message_id,omitempty"`
++	Sequence         int64     `json:"sequence"`
++	Direction        string    `json:"direction"`
++	Event            string    `json:"event,omitempty"`
++	TargetMessageID  string    `json:"target_message_id,omitempty"`
++	Text             string    `json:"text"`
++	StaffUserID      int64     `json:"staff_user_id,omitempty"`
++	StaffName        string    `json:"staff_name,omitempty"`
++	TopicMessageID   int       `json:"-"`
++	Visible          bool      `json:"visible"`
++	CreatedAt        time.Time `json:"created_at"`
 +}
 +
 +type Store interface {
@@ -455,8 +1350,16 @@ index 0000000..4118739
 +	SaveMessageLink(context.Context, MessageLink) error
 +	MessageLinkByUser(context.Context, int64, int) (MessageLink, bool, error)
 +	MessageLinkByTopic(context.Context, int) (MessageLink, bool, error)
-+	DeleteMessageLink(context.Context, int64, int) error
++	DeleteMessageLink(context.Context, MessageLink) error
 +	SetConversationProtection(context.Context, int64, bool) (Conversation, error)
++	MessageLinksByUser(context.Context, int64) ([]MessageLink, error)
++	ReplaceMessageLinksByUser(context.Context, int64, []MessageLink) error
++	SetStaffVisibility(context.Context, int64, int64, bool) error
++	StaffVisible(context.Context, int64, int64) (bool, error)
++	VisibleStaff(context.Context, int64) ([]int64, error)
++	AddWebMessage(context.Context, WebMessage) (WebMessage, error)
++	WebMessageByID(context.Context, string) (WebMessage, bool, error)
++	SetWebMessageVisible(context.Context, string, bool) error
 +}
 +
 +type Telegram interface {
@@ -469,6 +1372,9 @@ index 0000000..4118739
 +	EditMessageCaption(context.Context, int64, int, string) error
 +	DeleteMessage(context.Context, int64, int) error
 +	SendReplyMessage(context.Context, int64, string, int, int) (int, error)
++	DeleteMessages(context.Context, int64, []int) error
++	DeleteForumTopic(context.Context, int64, int) error
++	IsChatAdministrator(context.Context, int64, int64) (bool, error)
 +}
 +
 +type Handler struct {
@@ -490,17 +1396,37 @@ index 0000000..4118739
 +		return nil
 +	}
 +	if m.Chat.Type == "private" {
++		if isHelpCommand(m.Text) {
++			return h.sendPrivateNotice(ctx, m, "可用命令：\n/delete — 回复一条消息后双端删除\n/help — 显示命令说明")
++		}
++		if matched, _ := clearCommand(m.Text); matched {
++			return h.sendPrivateNotice(ctx, m, "整段对话删除仅由管理员操作；你可以回复单条消息后发送 /delete。")
++		}
++		if matched, _ := clearUserCommand(m.Text); matched {
++			return h.sendPrivateNotice(ctx, m, "整段对话删除仅由管理员操作；你可以回复单条消息后发送 /delete。")
++		}
 +		if isDeleteCommand(m.Text) {
 +			return h.deletePair(ctx, m)
 +		}
 +		return h.fromUser(ctx, m)
 +	}
 +	if m.Chat.ID == h.supportGroupID && m.MessageThreadID != 0 {
++		if staffAction, matched := staffControlCommand(m.Text); matched {
++			return h.controlStaffVisibility(ctx, m, staffAction)
++		}
++		if visibilityAction, matched := messageVisibilityCommand(m.Text); matched {
++			return h.controlMessageVisibility(ctx, m, visibilityAction)
++		}
++		if matched, confirmed := clearCommand(m.Text); matched {
++			return h.clearConversation(ctx, m, confirmed)
++		}
++		if matched, confirmed := clearUserCommand(m.Text); matched {
++			return h.clearUserConversation(ctx, m, confirmed)
++		}
 +		if isHelpCommand(m.Text) {
-+			_, err := h.telegram.SendMessage(ctx, h.supportGroupID,
-+				"管理命令：\n/protect on — 开启后续消息保护\n/protect off — 关闭保护\n/protect — 查看状态\n/delete — 回复消息后双端删除",
-+				m.MessageThreadID)
-+			return err
++			return h.sendTopicNotice(ctx, m,
++				"管理命令：\n/protect on|off — 后续消息保护\n/delete — 回复后双端删除\n/clear — 清空双方，保留 Topic 和资料卡\n/clear_user — 仅清空客户端\n/allow_staff — 回复成员消息并授权自动外发\n/deny_staff — 取消成员自动外发\n/staff — 查看已授权成员\n/show — 回复后单条对客可见\n/hide — 回复后单条仅内部可见",
++			)
 +		}
 +		if matched, action := protectCommand(m.Text); matched {
 +			return h.setProtection(ctx, m, action)
@@ -509,6 +1435,144 @@ index 0000000..4118739
 +			return h.deletePair(ctx, m)
 +		}
 +		return h.fromStaff(ctx, m)
++	}
++	return nil
++}
++
++func (h *Handler) sendPrivateNotice(ctx context.Context, command *telegram.Message, text string) error {
++	responseID, err := h.telegram.SendMessage(ctx, command.Chat.ID, text, 0)
++	if err != nil {
++		return err
++	}
++	now := time.Now().UTC()
++	if err := h.store.SaveMessageLink(ctx, MessageLink{UserID: command.Chat.ID, UserMessageID: command.MessageID, CreatedAt: now}); err != nil {
++		return err
++	}
++	return h.store.SaveMessageLink(ctx, MessageLink{UserID: command.Chat.ID, UserMessageID: responseID, CreatedAt: now})
++}
++
++func (h *Handler) sendTopicNotice(ctx context.Context, command *telegram.Message, text string) error {
++	c, found, err := h.store.ConversationByTopic(ctx, int64(command.MessageThreadID))
++	if err != nil {
++		return fmt.Errorf("find topic notice conversation: %w", err)
++	}
++	if !found {
++		return fmt.Errorf("topic %d has no user mapping", command.MessageThreadID)
++	}
++	return h.sendTopicNoticeForUser(ctx, c.UserID, command, text)
++}
++
++func (h *Handler) sendTopicNoticeForUser(ctx context.Context, userID int64, command *telegram.Message, text string) error {
++	responseID, err := h.telegram.SendMessage(ctx, h.supportGroupID, text, command.MessageThreadID)
++	if err != nil {
++		return err
++	}
++	now := time.Now().UTC()
++	if err := h.store.SaveMessageLink(ctx, MessageLink{UserID: userID, TopicMessageID: command.MessageID, Hidden: true, CreatedAt: now}); err != nil {
++		return err
++	}
++	return h.store.SaveMessageLink(ctx, MessageLink{UserID: userID, TopicMessageID: responseID, Hidden: true, CreatedAt: now})
++}
++
++func (h *Handler) clearConversation(ctx context.Context, command *telegram.Message, confirmed bool) error {
++	c, found, err := h.store.ConversationByTopic(ctx, int64(command.MessageThreadID))
++	if err != nil {
++		return fmt.Errorf("find conversation to clear: %w", err)
++	}
++	if !found {
++		return fmt.Errorf("topic %d has no user mapping", command.MessageThreadID)
++	}
++	if !confirmed {
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command,
++			"⚠️ 这会清空双方的对话消息，保留当前 Topic 和首条用户资料卡。发送 /clear confirm 确认。")
++	}
++	links, err := h.store.MessageLinksByUser(ctx, c.UserID)
++	if err != nil {
++		return fmt.Errorf("list conversation messages: %w", err)
++	}
++	userMessageIDs := make([]int, 0, len(links))
++	topicMessageIDs := make([]int, 0, len(links)+1)
++	for _, link := range links {
++		if link.UserMessageID != 0 {
++			userMessageIDs = append(userMessageIDs, link.UserMessageID)
++		}
++		if link.TopicMessageID != 0 {
++			topicMessageIDs = append(topicMessageIDs, link.TopicMessageID)
++		}
++	}
++	topicMessageIDs = append(topicMessageIDs, command.MessageID)
++	if err := h.deleteMessageIDs(ctx, c.UserID, userMessageIDs); err != nil {
++		_ = h.sendTopicNoticeForUser(ctx, c.UserID, command, "⚠️ 用户端批量删除失败，Topic 已保留，请检查日志后重试。")
++		return fmt.Errorf("delete user conversation batch: %w", err)
++	}
++	if err := h.deleteMessageIDs(ctx, h.supportGroupID, topicMessageIDs); err != nil {
++		_ = h.sendTopicNoticeForUser(ctx, c.UserID, command, "⚠️ 管理端批量删除失败，Topic 和资料卡已保留，请检查权限后重试。")
++		return fmt.Errorf("delete topic conversation batch: %w", err)
++	}
++	if err := h.store.ReplaceMessageLinksByUser(ctx, c.UserID, nil); err != nil {
++		return fmt.Errorf("clear conversation message mappings: %w", err)
++	}
++	return nil
++}
++
++func (h *Handler) clearUserConversation(ctx context.Context, command *telegram.Message, confirmed bool) error {
++	c, found, err := h.store.ConversationByTopic(ctx, int64(command.MessageThreadID))
++	if err != nil {
++		return fmt.Errorf("find conversation to clear user side: %w", err)
++	}
++	if !found {
++		return fmt.Errorf("topic %d has no user mapping", command.MessageThreadID)
++	}
++	if !confirmed {
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command,
++			"⚠️ 这会仅清空用户端消息，管理端 Topic 历史完整保留。发送 /clear_user confirm 确认。")
++	}
++	links, err := h.store.MessageLinksByUser(ctx, c.UserID)
++	if err != nil {
++		return fmt.Errorf("list user-side messages: %w", err)
++	}
++	userMessageIDs := make([]int, 0, len(links))
++	retained := make([]MessageLink, 0, len(links))
++	for _, link := range links {
++		if link.UserMessageID != 0 {
++			userMessageIDs = append(userMessageIDs, link.UserMessageID)
++		}
++		if link.TopicMessageID != 0 {
++			link.UserMessageID = 0
++			retained = append(retained, link)
++		}
++	}
++	if err := h.deleteMessageIDs(ctx, c.UserID, userMessageIDs); err != nil {
++		_ = h.sendTopicNoticeForUser(ctx, c.UserID, command, "⚠️ 用户端批量删除失败，管理端历史已保留，请检查日志后重试。")
++		return fmt.Errorf("delete user-only conversation batch: %w", err)
++	}
++	if err := h.store.ReplaceMessageLinksByUser(ctx, c.UserID, retained); err != nil {
++		return fmt.Errorf("clear user-side message mappings: %w", err)
++	}
++	return h.sendTopicNoticeForUser(ctx, c.UserID, command, "✅ 用户端消息已清空，管理端 Topic 历史已保留。")
++}
++
++func (h *Handler) deleteMessageIDs(ctx context.Context, chatID int64, messageIDs []int) error {
++	unique := make([]int, 0, len(messageIDs))
++	seen := make(map[int]struct{}, len(messageIDs))
++	for _, messageID := range messageIDs {
++		if messageID == 0 {
++			continue
++		}
++		if _, exists := seen[messageID]; exists {
++			continue
++		}
++		seen[messageID] = struct{}{}
++		unique = append(unique, messageID)
++	}
++	for start := 0; start < len(unique); start += 100 {
++		end := start + 100
++		if end > len(unique) {
++			end = len(unique)
++		}
++		if err := h.telegram.DeleteMessages(ctx, chatID, unique[start:end]); err != nil {
++			return err
++		}
 +	}
 +	return nil
 +}
@@ -531,10 +1595,126 @@ index 0000000..4118739
 +	if c.ProtectContent {
 +		status = "开启"
 +	}
-+	_, err = h.telegram.SendMessage(ctx, h.supportGroupID,
++	return h.sendTopicNoticeForUser(ctx, c.UserID, command,
 +		fmt.Sprintf("🔒 禁止转发/保存：%s\n使用 /protect on 开启，/protect off 关闭\n设置只影响之后发送的消息。", status),
-+		command.MessageThreadID)
-+	return err
++	)
++}
++
++func (h *Handler) controlStaffVisibility(ctx context.Context, command *telegram.Message, action string) error {
++	c, found, err := h.store.ConversationByTopic(ctx, int64(command.MessageThreadID))
++	if err != nil {
++		return fmt.Errorf("find staff visibility conversation: %w", err)
++	}
++	if !found {
++		return fmt.Errorf("topic %d has no user mapping", command.MessageThreadID)
++	}
++	admin, err := h.commandFromAdmin(ctx, command)
++	if err != nil {
++		return err
++	}
++	if !admin {
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command, "⛔ 只有管理员可以修改客户可见范围。")
++	}
++	if action == "list" {
++		staffIDs, err := h.store.VisibleStaff(ctx, c.UserID)
++		if err != nil {
++			return fmt.Errorf("list visible staff: %w", err)
++		}
++		if len(staffIDs) == 0 {
++			return h.sendTopicNoticeForUser(ctx, c.UserID, command, "👥 当前没有已授权自动对客可见的成员。")
++		}
++		parts := make([]string, 0, len(staffIDs))
++		for _, staffID := range staffIDs {
++			parts = append(parts, strconv.FormatInt(staffID, 10))
++		}
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command, "👥 已授权成员 ID："+strings.Join(parts, ", "))
++	}
++	if command.ReplyToMessage == nil || command.ReplyToMessage.From == nil || command.ReplyToMessage.From.IsBot {
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command, "请回复目标成员的一条消息，再发送 /allow_staff 或 /deny_staff。")
++	}
++	staff := command.ReplyToMessage.From
++	visible := action == "allow"
++	if err := h.store.SetStaffVisibility(ctx, c.UserID, staff.ID, visible); err != nil {
++		return fmt.Errorf("save staff visibility: %w", err)
++	}
++	state := "已允许自动对客可见"
++	if !visible {
++		state = "已转为仅内部可见"
++	}
++	return h.sendTopicNoticeForUser(ctx, c.UserID, command, fmt.Sprintf("👥 %s（ID %d）%s。", displayName(staff), staff.ID, state))
++}
++
++func (h *Handler) controlMessageVisibility(ctx context.Context, command *telegram.Message, action string) error {
++	c, found, err := h.store.ConversationByTopic(ctx, int64(command.MessageThreadID))
++	if err != nil {
++		return fmt.Errorf("find message visibility conversation: %w", err)
++	}
++	if !found {
++		return fmt.Errorf("topic %d has no user mapping", command.MessageThreadID)
++	}
++	admin, err := h.commandFromAdmin(ctx, command)
++	if err != nil {
++		return err
++	}
++	if !admin {
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command, "⛔ 只有管理员可以修改单条消息的客户可见性。")
++	}
++	if command.ReplyToMessage == nil {
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command, "请回复目标消息，再发送 /show 或 /hide。")
++	}
++	link, linkFound, err := h.store.MessageLinkByTopic(ctx, command.ReplyToMessage.MessageID)
++	if err != nil {
++		return fmt.Errorf("find visibility message mapping: %w", err)
++	}
++	if action == "show" {
++		if linkFound && !link.Hidden {
++			return h.sendTopicNoticeForUser(ctx, c.UserID, command, "✅ 该消息已对客户可见。")
++		}
++		if err := h.publishStaffMessage(ctx, c, command.ReplyToMessage, link, linkFound); err != nil {
++			return err
++		}
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command, "✅ 该消息已单独设为客户可见。")
++	}
++	if !linkFound || link.Hidden {
++		return h.sendTopicNoticeForUser(ctx, c.UserID, command, "👁 该消息当前只在管理端可见。")
++	}
++	if c.Channel == "web" {
++		if err := h.store.SetWebMessageVisible(ctx, link.WebMessageID, false); err != nil {
++			return fmt.Errorf("hide web message: %w", err)
++		}
++		eventID, err := newWebMessageID()
++		if err != nil {
++			return err
++		}
++		_, err = h.store.AddWebMessage(ctx, WebMessage{ID: eventID, ConversationID: c.PublicID, Direction: "system", Event: "message_hidden", TargetMessageID: link.WebMessageID, Visible: true, CreatedAt: time.Now().UTC()})
++		if err != nil {
++			return fmt.Errorf("append web hide event: %w", err)
++		}
++	} else if link.UserMessageID != 0 {
++		if err := h.telegram.DeleteMessage(ctx, c.UserID, link.UserMessageID); err != nil && !messageAlreadyDeleted(err) {
++			return fmt.Errorf("hide telegram message %d: %w", link.UserMessageID, err)
++		}
++	}
++	if err := h.store.DeleteMessageLink(ctx, link); err != nil {
++		return err
++	}
++	link.UserMessageID = 0
++	link.Hidden = true
++	if err := h.store.SaveMessageLink(ctx, link); err != nil {
++		return err
++	}
++	return h.sendTopicNoticeForUser(ctx, c.UserID, command, "👁 该消息已转为仅管理端可见。")
++}
++
++func (h *Handler) commandFromAdmin(ctx context.Context, command *telegram.Message) (bool, error) {
++	if command.From == nil {
++		return false, nil
++	}
++	admin, err := h.telegram.IsChatAdministrator(ctx, h.supportGroupID, command.From.ID)
++	if err != nil {
++		return false, fmt.Errorf("check administrator %d: %w", command.From.ID, err)
++	}
++	return admin, nil
 +}
 +
 +func (h *Handler) editedMessage(ctx context.Context, m *telegram.Message) error {
@@ -579,6 +1759,9 @@ index 0000000..4118739
 +		return nil
 +	}
 +	destinationChatID, destinationMessageID := link.UserID, link.UserMessageID
++	if destinationMessageID == 0 {
++		return nil
++	}
 +	if m.Text != "" {
 +		if err := h.telegram.EditMessageText(ctx, destinationChatID, destinationMessageID, m.Text); err != nil {
 +			return fmt.Errorf("sync text edit for message %d: %w", m.MessageID, err)
@@ -593,8 +1776,10 @@ index 0000000..4118739
 +
 +func (h *Handler) deletePair(ctx context.Context, command *telegram.Message) error {
 +	if command.ReplyToMessage == nil {
-+		_, err := h.telegram.SendMessage(ctx, command.Chat.ID, "请回复要双端删除的消息，然后发送 /delete", command.MessageThreadID)
-+		return err
++		if command.Chat.Type == "private" {
++			return h.sendPrivateNotice(ctx, command, "请回复要双端删除的消息，然后发送 /delete")
++		}
++		return h.sendTopicNotice(ctx, command, "请回复要双端删除的消息，然后发送 /delete")
 +	}
 +	var link MessageLink
 +	var found bool
@@ -611,11 +1796,15 @@ index 0000000..4118739
 +		return fmt.Errorf("message %d has no message mapping", command.ReplyToMessage.MessageID)
 +	}
 +	var failures []error
-+	if err := h.telegram.DeleteMessage(ctx, link.UserID, link.UserMessageID); err != nil && !messageAlreadyDeleted(err) {
-+		failures = append(failures, fmt.Errorf("delete user message %d: %w", link.UserMessageID, err))
++	if link.UserMessageID != 0 {
++		if err := h.telegram.DeleteMessage(ctx, link.UserID, link.UserMessageID); err != nil && !messageAlreadyDeleted(err) {
++			failures = append(failures, fmt.Errorf("delete user message %d: %w", link.UserMessageID, err))
++		}
 +	}
-+	if err := h.telegram.DeleteMessage(ctx, h.supportGroupID, link.TopicMessageID); err != nil && !messageAlreadyDeleted(err) {
-+		failures = append(failures, fmt.Errorf("delete topic message %d: %w", link.TopicMessageID, err))
++	if link.TopicMessageID != 0 {
++		if err := h.telegram.DeleteMessage(ctx, h.supportGroupID, link.TopicMessageID); err != nil && !messageAlreadyDeleted(err) {
++			failures = append(failures, fmt.Errorf("delete topic message %d: %w", link.TopicMessageID, err))
++		}
 +	}
 +	if err := h.telegram.DeleteMessage(ctx, command.Chat.ID, command.MessageID); err != nil && !messageAlreadyDeleted(err) {
 +		failures = append(failures, fmt.Errorf("delete command message %d: %w", command.MessageID, err))
@@ -627,7 +1816,7 @@ index 0000000..4118739
 +		}
 +		return errors.Join(failures...)
 +	}
-+	return h.store.DeleteMessageLink(ctx, link.UserID, link.UserMessageID)
++	return h.store.DeleteMessageLink(ctx, link)
 +}
 +
 +func messageAlreadyDeleted(err error) bool {
@@ -663,6 +1852,54 @@ index 0000000..4118739
 +func isHelpCommand(text string) bool {
 +	fields := strings.Fields(strings.ToLower(text))
 +	return len(fields) > 0 && strings.SplitN(fields[0], "@", 2)[0] == "/help"
++}
++
++func clearCommand(text string) (bool, bool) {
++	fields := strings.Fields(strings.ToLower(text))
++	if len(fields) == 0 || strings.SplitN(fields[0], "@", 2)[0] != "/clear" {
++		return false, false
++	}
++	return true, len(fields) > 1 && fields[1] == "confirm"
++}
++
++func clearUserCommand(text string) (bool, bool) {
++	fields := strings.Fields(strings.ToLower(text))
++	if len(fields) == 0 || strings.SplitN(fields[0], "@", 2)[0] != "/clear_user" {
++		return false, false
++	}
++	return true, len(fields) > 1 && fields[1] == "confirm"
++}
++
++func staffControlCommand(text string) (string, bool) {
++	fields := strings.Fields(strings.ToLower(text))
++	if len(fields) == 0 {
++		return "", false
++	}
++	switch strings.SplitN(fields[0], "@", 2)[0] {
++	case "/allow_staff":
++		return "allow", true
++	case "/deny_staff":
++		return "deny", true
++	case "/staff":
++		return "list", true
++	default:
++		return "", false
++	}
++}
++
++func messageVisibilityCommand(text string) (string, bool) {
++	fields := strings.Fields(strings.ToLower(text))
++	if len(fields) == 0 {
++		return "", false
++	}
++	switch strings.SplitN(fields[0], "@", 2)[0] {
++	case "/show":
++		return "show", true
++	case "/hide":
++		return "hide", true
++	default:
++		return "", false
++	}
 +}
 +
 +func (h *Handler) fromUser(ctx context.Context, m *telegram.Message) error {
@@ -714,7 +1951,7 @@ index 0000000..4118739
 +	if err := h.store.CreateConversation(ctx, c); err != nil {
 +		return Conversation{}, fmt.Errorf("save topic %d mapping: %w", topicID, err)
 +	}
-+	card := fmt.Sprintf("👤 用户资料\n名称：%s\n用户名：%s\n用户 ID：%d\n\n管理命令：\n/protect on — 禁止后续消息转发/保存\n/protect off — 关闭保护\n回复消息发送 /delete — 双端删除", displayName, usernameLabel(username), m.Chat.ID)
++	card := fmt.Sprintf("👤 用户资料\n名称：%s\n用户名：%s\n用户 ID：%d\n\n使用 /help 查看管理命令\n普通成员发言默认仅内部可见，管理员可按成员或单条消息授权外发。", displayName, usernameLabel(username), m.Chat.ID)
 +	if fileID, ok, photoErr := h.telegram.FirstProfilePhoto(ctx, m.Chat.ID); photoErr == nil && ok {
 +		if _, photoErr = h.telegram.SendPhotoByFileID(ctx, h.supportGroupID, fileID, card, topicID); photoErr == nil {
 +			return c, nil
@@ -732,21 +1969,96 @@ index 0000000..4118739
 +	if !found {
 +		return fmt.Errorf("topic %d has no user mapping", m.MessageThreadID)
 +	}
-+	options := telegram.CopyOptions{ProtectContent: c.ProtectContent}
-+	if m.ReplyToMessage != nil {
-+		link, linkFound, linkErr := h.store.MessageLinkByTopic(ctx, m.ReplyToMessage.MessageID)
-+		if linkErr != nil {
-+			return fmt.Errorf("find replied topic message: %w", linkErr)
-+		}
-+		if linkFound && link.UserID == c.UserID {
-+			options.ReplyToMessageID = link.UserMessageID
++	admin := false
++	if m.From != nil {
++		admin, err = h.telegram.IsChatAdministrator(ctx, h.supportGroupID, m.From.ID)
++		if err != nil {
++			return fmt.Errorf("check staff administrator status: %w", err)
 +		}
 +	}
-+	userMessageID, err := h.telegram.CopyMessage(ctx, c.UserID, h.supportGroupID, m.MessageID, options)
-+	if err != nil {
-+		return fmt.Errorf("copy topic message %d to user %d: %w", m.MessageID, c.UserID, err)
++	visible := admin
++	if !visible && m.From != nil {
++		visible, err = h.store.StaffVisible(ctx, c.UserID, m.From.ID)
++		if err != nil {
++			return fmt.Errorf("check staff visibility: %w", err)
++		}
 +	}
-+	return h.store.SaveMessageLink(ctx, MessageLink{UserID: c.UserID, UserMessageID: userMessageID, TopicMessageID: m.MessageID, CreatedAt: time.Now().UTC()})
++	if !visible {
++		return h.store.SaveMessageLink(ctx, MessageLink{UserID: c.UserID, TopicMessageID: m.MessageID, Hidden: true, CreatedAt: time.Now().UTC()})
++	}
++	return h.publishStaffMessage(ctx, c, m, MessageLink{}, false)
++}
++
++func (h *Handler) publishStaffMessage(ctx context.Context, c Conversation, m *telegram.Message, previous MessageLink, replace bool) error {
++	var link MessageLink
++	createdAt := time.Now().UTC()
++	if c.Channel == "web" {
++		messageID, err := newWebMessageID()
++		if err != nil {
++			return err
++		}
++		content := strings.TrimSpace(m.Text)
++		if content == "" {
++			content = strings.TrimSpace(m.Caption)
++		}
++		if content == "" {
++			content = "[非文本消息]"
++		}
++		staffID, staffName := int64(0), "客服"
++		if m.From != nil {
++			staffID, staffName = m.From.ID, displayName(m.From)
++		}
++		replyToMessageID := ""
++		if m.ReplyToMessage != nil {
++			replyLink, found, lookupErr := h.store.MessageLinkByTopic(ctx, m.ReplyToMessage.MessageID)
++			if lookupErr != nil {
++				return fmt.Errorf("find replied web message: %w", lookupErr)
++			}
++			if found && replyLink.UserID == c.UserID {
++				replyToMessageID = replyLink.WebMessageID
++			}
++		}
++		message, err := h.store.AddWebMessage(ctx, WebMessage{
++			ID: messageID, ConversationID: c.PublicID, Direction: "staff", Text: content,
++			ReplyToMessageID: replyToMessageID,
++			StaffUserID:      staffID, StaffName: staffName, TopicMessageID: m.MessageID,
++			Visible: true, CreatedAt: createdAt,
++		})
++		if err != nil {
++			return fmt.Errorf("append web staff message: %w", err)
++		}
++		link = MessageLink{UserID: c.UserID, TopicMessageID: m.MessageID, WebMessageID: message.ID, CreatedAt: createdAt}
++	} else {
++		options := telegram.CopyOptions{ProtectContent: c.ProtectContent}
++		if m.ReplyToMessage != nil {
++			replyLink, linkFound, linkErr := h.store.MessageLinkByTopic(ctx, m.ReplyToMessage.MessageID)
++			if linkErr != nil {
++				return fmt.Errorf("find replied topic message: %w", linkErr)
++			}
++			if linkFound && replyLink.UserID == c.UserID {
++				options.ReplyToMessageID = replyLink.UserMessageID
++			}
++		}
++		userMessageID, err := h.telegram.CopyMessage(ctx, c.UserID, h.supportGroupID, m.MessageID, options)
++		if err != nil {
++			return fmt.Errorf("copy topic message %d to user %d: %w", m.MessageID, c.UserID, err)
++		}
++		link = MessageLink{UserID: c.UserID, UserMessageID: userMessageID, TopicMessageID: m.MessageID, CreatedAt: createdAt}
++	}
++	if replace {
++		if err := h.store.DeleteMessageLink(ctx, previous); err != nil {
++			return fmt.Errorf("replace hidden message mapping: %w", err)
++		}
++	}
++	return h.store.SaveMessageLink(ctx, link)
++}
++
++func newWebMessageID() (string, error) {
++	raw := make([]byte, 12)
++	if _, err := rand.Read(raw); err != nil {
++		return "", fmt.Errorf("generate web message id: %w", err)
++	}
++	return "wm_" + hex.EncodeToString(raw), nil
 +}
 +
 +func displayName(u *telegram.User) string {
@@ -768,10 +2080,10 @@ index 0000000..4118739
 +}
 diff --git a/internal/bot/handler_test.go b/internal/bot/handler_test.go
 new file mode 100644
-index 0000000..d93902b
+index 0000000..e3e46b8
 --- /dev/null
 +++ b/internal/bot/handler_test.go
-@@ -0,0 +1,436 @@
+@@ -0,0 +1,842 @@
 +package bot
 +
 +import (
@@ -784,14 +2096,17 @@ index 0000000..d93902b
 +)
 +
 +type fakeStore struct {
-+	byUser    map[int64]Conversation
-+	byTopic   map[int64]Conversation
-+	saved     []MessageLink
-+	createErr error
++	byUser              map[int64]Conversation
++	byTopic             map[int64]Conversation
++	saved               []MessageLink
++	webMessages         []WebMessage
++	staffVisibility     map[int64]map[int64]bool
++	createErr           error
++	deletedConversation int64
 +}
 +
 +func newFakeStore() *fakeStore {
-+	return &fakeStore{byUser: map[int64]Conversation{}, byTopic: map[int64]Conversation{}}
++	return &fakeStore{byUser: map[int64]Conversation{}, byTopic: map[int64]Conversation{}, staffVisibility: map[int64]map[int64]bool{}}
 +}
 +
 +func (s *fakeStore) ConversationByUser(_ context.Context, id int64) (Conversation, bool, error) {
@@ -829,9 +2144,9 @@ index 0000000..d93902b
 +	}
 +	return MessageLink{}, false, nil
 +}
-+func (s *fakeStore) DeleteMessageLink(_ context.Context, userID int64, userMessageID int) error {
++func (s *fakeStore) DeleteMessageLink(_ context.Context, target MessageLink) error {
 +	for i, link := range s.saved {
-+		if link.UserID == userID && link.UserMessageID == userMessageID {
++		if link.UserID == target.UserID && ((target.UserMessageID != 0 && link.UserMessageID == target.UserMessageID) || (target.TopicMessageID != 0 && link.TopicMessageID == target.TopicMessageID)) {
 +			s.saved = append(s.saved[:i], s.saved[i+1:]...)
 +			break
 +		}
@@ -847,6 +2162,79 @@ index 0000000..d93902b
 +	s.byUser[userID], s.byTopic[int64(c.TopicID)] = c, c
 +	return c, nil
 +}
++func (s *fakeStore) MessageLinksByUser(_ context.Context, userID int64) ([]MessageLink, error) {
++	var links []MessageLink
++	for _, link := range s.saved {
++		if link.UserID == userID {
++			links = append(links, link)
++		}
++	}
++	return links, nil
++}
++func (s *fakeStore) DeleteConversation(_ context.Context, userID int64) error {
++	c := s.byUser[userID]
++	delete(s.byUser, userID)
++	delete(s.byTopic, int64(c.TopicID))
++	s.deletedConversation = userID
++	kept := s.saved[:0]
++	for _, link := range s.saved {
++		if link.UserID != userID {
++			kept = append(kept, link)
++		}
++	}
++	s.saved = kept
++	return nil
++}
++func (s *fakeStore) ReplaceMessageLinksByUser(_ context.Context, userID int64, links []MessageLink) error {
++	kept := s.saved[:0]
++	for _, link := range s.saved {
++		if link.UserID != userID {
++			kept = append(kept, link)
++		}
++	}
++	s.saved = append(kept, links...)
++	return nil
++}
++func (s *fakeStore) SetStaffVisibility(_ context.Context, userID, staffID int64, visible bool) error {
++	if s.staffVisibility[userID] == nil {
++		s.staffVisibility[userID] = map[int64]bool{}
++	}
++	s.staffVisibility[userID][staffID] = visible
++	return nil
++}
++func (s *fakeStore) StaffVisible(_ context.Context, userID, staffID int64) (bool, error) {
++	return s.staffVisibility[userID][staffID], nil
++}
++func (s *fakeStore) VisibleStaff(_ context.Context, userID int64) ([]int64, error) {
++	var result []int64
++	for staffID, visible := range s.staffVisibility[userID] {
++		if visible {
++			result = append(result, staffID)
++		}
++	}
++	return result, nil
++}
++func (s *fakeStore) AddWebMessage(_ context.Context, message WebMessage) (WebMessage, error) {
++	message.Sequence = int64(len(s.webMessages) + 1)
++	s.webMessages = append(s.webMessages, message)
++	return message, nil
++}
++func (s *fakeStore) WebMessageByID(_ context.Context, id string) (WebMessage, bool, error) {
++	for _, message := range s.webMessages {
++		if message.ID == id {
++			return message, true, nil
++		}
++	}
++	return WebMessage{}, false, nil
++}
++func (s *fakeStore) SetWebMessageVisible(_ context.Context, id string, visible bool) error {
++	for i := range s.webMessages {
++		if s.webMessages[i].ID == id {
++			s.webMessages[i].Visible = visible
++		}
++	}
++	return nil
++}
 +
 +type copyCall struct {
 +	chatID, fromChatID int64
@@ -854,16 +2242,20 @@ index 0000000..d93902b
 +	options            telegram.CopyOptions
 +}
 +type fakeTelegram struct {
-+	topicID     int
-+	copyID      int
-+	copyCalls   []copyCall
-+	texts       []string
-+	photos      []string
-+	profileFile string
-+	edits       []editCall
-+	deletes     []deleteCall
-+	replies     []replyCall
-+	deleteErr   map[deleteCall]error
++	topicID        int
++	copyID         int
++	copyCalls      []copyCall
++	texts          []string
++	photos         []string
++	profileFile    string
++	edits          []editCall
++	deletes        []deleteCall
++	replies        []replyCall
++	deleteErr      map[deleteCall]error
++	deleteBatches  []deleteBatchCall
++	deleteBatchErr error
++	deletedTopics  []int
++	nonAdmins      map[int64]bool
 +}
 +type editCall struct {
 +	kind      string
@@ -874,6 +2266,10 @@ index 0000000..d93902b
 +type deleteCall struct {
 +	chatID    int64
 +	messageID int
++}
++type deleteBatchCall struct {
++	chatID     int64
++	messageIDs []int
 +}
 +type replyCall struct {
 +	chatID              int64
@@ -915,6 +2311,17 @@ index 0000000..d93902b
 +func (f *fakeTelegram) SendReplyMessage(_ context.Context, chatID int64, text string, threadID, messageID int) (int, error) {
 +	f.replies = append(f.replies, replyCall{chatID, messageID, threadID, text})
 +	return 79, nil
++}
++func (f *fakeTelegram) DeleteMessages(_ context.Context, chatID int64, messageIDs []int) error {
++	f.deleteBatches = append(f.deleteBatches, deleteBatchCall{chatID: chatID, messageIDs: append([]int(nil), messageIDs...)})
++	return f.deleteBatchErr
++}
++func (f *fakeTelegram) DeleteForumTopic(_ context.Context, _ int64, topicID int) error {
++	f.deletedTopics = append(f.deletedTopics, topicID)
++	return nil
++}
++func (f *fakeTelegram) IsChatAdministrator(_ context.Context, _ int64, userID int64) (bool, error) {
++	return !f.nonAdmins[userID], nil
 +}
 +
 +func TestPrivateMessageCreatesTopicAndCopiesMessage(t *testing.T) {
@@ -1088,6 +2495,8 @@ index 0000000..d93902b
 +
 +func TestDeleteCommandWithoutReplyShowsUsageAndIsNotForwarded(t *testing.T) {
 +	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
 +	h := NewHandler(-10099, store, api)
 +	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
 +		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/delete",
@@ -1095,8 +2504,8 @@ index 0000000..d93902b
 +	if err != nil {
 +		t.Fatal(err)
 +	}
-+	if len(api.copyCalls) != 0 || len(api.texts) != 1 {
-+		t.Fatalf("copies=%v texts=%v", api.copyCalls, api.texts)
++	if len(api.copyCalls) != 0 || len(api.texts) != 1 || len(store.saved) != 2 {
++		t.Fatalf("copies=%v texts=%v links=%v", api.copyCalls, api.texts, store.saved)
 +	}
 +}
 +
@@ -1188,8 +2597,11 @@ index 0000000..d93902b
 +	if err != nil {
 +		t.Fatal(err)
 +	}
-+	if !store.byUser[1001].ProtectContent || len(api.copyCalls) != 0 || len(api.texts) != 1 {
-+		t.Fatalf("conversation=%#v copies=%v texts=%v", store.byUser[1001], api.copyCalls, api.texts)
++	if !store.byUser[1001].ProtectContent || len(api.copyCalls) != 0 || len(api.texts) != 1 || len(store.saved) != 2 {
++		t.Fatalf("conversation=%#v copies=%v texts=%v links=%v", store.byUser[1001], api.copyCalls, api.texts, store.saved)
++	}
++	if store.saved[0].TopicMessageID != 60 || store.saved[1].TopicMessageID != 77 {
++		t.Fatalf("links=%#v", store.saved)
 +	}
 +}
 +
@@ -1204,16 +2616,322 @@ index 0000000..d93902b
 +	if err != nil {
 +		t.Fatal(err)
 +	}
-+	if len(api.copyCalls) != 0 || len(api.texts) != 1 || !strings.Contains(api.texts[0], "/protect") {
++	if len(api.copyCalls) != 0 || len(api.texts) != 1 || !strings.Contains(api.texts[0], "/protect") || len(store.saved) != 2 {
++		t.Fatalf("copies=%v texts=%v links=%v", api.copyCalls, api.texts, store.saved)
++	}
++}
++
++func TestClearConversationRequiresConfirmation(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/clear",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.texts) != 1 || len(api.deletedTopics) != 0 || store.deletedConversation != 0 {
++		t.Fatalf("texts=%v topics=%v deleted=%d", api.texts, api.deletedTopics, store.deletedConversation)
++	}
++}
++
++func TestClearConversationDeletesBothSidesButPreservesTopicAndProfileCard(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	for i := 1; i <= 101; i++ {
++		store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: i, TopicMessageID: 1000 + i})
++	}
++	store.saved = append(store.saved,
++		MessageLink{UserID: 1001, TopicMessageID: 2001},
++		MessageLink{UserID: 1001, TopicMessageID: 2002},
++	)
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/clear confirm",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.deleteBatches) != 4 || len(api.deleteBatches[0].messageIDs) != 100 || len(api.deleteBatches[1].messageIDs) != 1 || len(api.deleteBatches[2].messageIDs) != 100 || len(api.deleteBatches[3].messageIDs) != 4 {
++		t.Fatalf("batches=%v", api.deleteBatches)
++	}
++	if api.deleteBatches[0].chatID != 1001 || api.deleteBatches[2].chatID != -10099 {
++		t.Fatalf("batch chats=%v", api.deleteBatches)
++	}
++	for _, batch := range api.deleteBatches[2:] {
++		for _, messageID := range batch.messageIDs {
++			if messageID == 900 {
++				t.Fatal("untracked profile card was deleted")
++			}
++		}
++	}
++	if len(api.deletedTopics) != 0 || store.deletedConversation != 0 || len(store.saved) != 0 {
++		t.Fatalf("topics=%v deleted=%d links=%d", api.deletedTopics, store.deletedConversation, len(store.saved))
++	}
++	if _, found := store.byTopic[12]; !found {
++		t.Fatal("topic conversation mapping was removed")
++	}
++}
++
++func TestClearConversationKeepsTopicWhenUserBatchDeleteFails(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{deleteBatchErr: errors.New("batch failed")}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 1, TopicMessageID: 1001})
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/clear confirm",
++	}})
++	if err == nil || !strings.Contains(err.Error(), "delete user conversation batch") {
++		t.Fatalf("err=%v", err)
++	}
++	if len(api.deletedTopics) != 0 || store.deletedConversation != 0 || len(api.texts) != 1 {
++		t.Fatalf("topics=%v deleted=%d notices=%v", api.deletedTopics, store.deletedConversation, api.texts)
++	}
++}
++
++func TestPrivateClearIsRejectedAndPrivateHelpListsDelete(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	h := NewHandler(-10099, store, api)
++	for _, command := range []string{"/clear confirm", "/help"} {
++		err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++			MessageID: 80, Chat: telegram.Chat{ID: 1001, Type: "private"}, From: &telegram.User{ID: 1001}, Text: command,
++		}})
++		if err != nil {
++			t.Fatal(err)
++		}
++	}
++	if len(api.copyCalls) != 0 || len(api.texts) != 2 || !strings.Contains(api.texts[1], "/delete") || strings.Contains(api.texts[1], "/clear") {
 +		t.Fatalf("copies=%v texts=%v", api.copyCalls, api.texts)
++	}
++}
++
++func TestUnapprovedStaffMessageStaysInternal(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{copyID: 91, nonAdmins: map[int64]bool{7: true}}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7, FirstName: "Tech"}, Text: "internal diagnosis",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.copyCalls) != 0 || len(store.saved) != 1 || !store.saved[0].Hidden || store.saved[0].TopicMessageID != 50 {
++		t.Fatalf("copies=%v links=%#v", api.copyCalls, store.saved)
++	}
++}
++
++func TestAdminAllowsStaffForCurrentTopic(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{copyID: 91, nonAdmins: map[int64]bool{7: true}}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	allow := telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/allow_staff",
++		ReplyToMessage: &telegram.Message{MessageID: 50, From: &telegram.User{ID: 7, FirstName: "Tech"}},
++	}}
++	if err := h.Handle(context.Background(), allow); err != nil {
++		t.Fatal(err)
++	}
++	if !store.staffVisibility[1001][7] || len(api.copyCalls) != 0 {
++		t.Fatalf("visibility=%v copies=%v", store.staffVisibility, api.copyCalls)
++	}
++	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 61, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7, FirstName: "Tech"}, Text: "customer-visible answer",
++	}}); err != nil {
++		t.Fatal(err)
++	}
++	if len(api.copyCalls) != 1 || api.copyCalls[0].messageID != 61 {
++		t.Fatalf("copies=%#v", api.copyCalls)
++	}
++}
++
++func TestAdminShowsThenHidesOneStaffMessage(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{copyID: 91, nonAdmins: map[int64]bool{7: true}}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.saved = []MessageLink{{UserID: 1001, TopicMessageID: 50, Hidden: true}}
++	h := NewHandler(-10099, store, api)
++	original := &telegram.Message{MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7, FirstName: "Tech"}, Text: "approved answer"}
++	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/show", ReplyToMessage: original,
++	}}); err != nil {
++		t.Fatal(err)
++	}
++	link, found, _ := store.MessageLinkByTopic(context.Background(), 50)
++	if !found || link.Hidden || link.UserMessageID != 91 {
++		t.Fatalf("shown link=%#v found=%v", link, found)
++	}
++	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 62, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/hide", ReplyToMessage: original,
++	}}); err != nil {
++		t.Fatal(err)
++	}
++	link, found, _ = store.MessageLinkByTopic(context.Background(), 50)
++	if !found || !link.Hidden || link.UserMessageID != 0 {
++		t.Fatalf("hidden link=%#v found=%v", link, found)
++	}
++	if len(api.deletes) == 0 || api.deletes[0] != (deleteCall{1001, 91}) {
++		t.Fatalf("deletes=%#v", api.deletes)
++	}
++}
++
++func TestWebConversationPublishesAdminReplyToWebQueue(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: -1001, TopicID: 12, PublicID: "wc_1", Channel: "web", DisplayName: "Ada"}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	h := NewHandler(-10099, store, api)
++	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9, FirstName: "Alice"}, Text: "hello from support",
++	}}); err != nil {
++		t.Fatal(err)
++	}
++	if len(api.copyCalls) != 0 || len(store.webMessages) != 1 || store.webMessages[0].Text != "hello from support" || !store.webMessages[0].Visible {
++		t.Fatalf("copies=%v web=%#v", api.copyCalls, store.webMessages)
++	}
++	if len(store.saved) != 1 || store.saved[0].WebMessageID == "" {
++		t.Fatalf("links=%#v", store.saved)
++	}
++}
++
++func TestWebStaffReplyKeepsQuotedMessageMapping(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: -1001, TopicID: 12, PublicID: "wc_1", Channel: "web", DisplayName: "Ada"}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.saved = []MessageLink{{UserID: c.UserID, TopicMessageID: 40, WebMessageID: "wm_customer"}}
++	h := NewHandler(-10099, store, api)
++	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"},
++		From: &telegram.User{ID: 9, FirstName: "Alice"}, Text: "quoted answer",
++		ReplyToMessage: &telegram.Message{MessageID: 40},
++	}}); err != nil {
++		t.Fatal(err)
++	}
++	if len(store.webMessages) != 1 || store.webMessages[0].ReplyToMessageID != "wm_customer" {
++		t.Fatalf("web=%#v", store.webMessages)
++	}
++}
++
++func TestAdminDeniesAndListsStaffWhileMemberCannotControl(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{nonAdmins: map[int64]bool{7: true}}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.staffVisibility[1001] = map[int64]bool{7: true}
++	h := NewHandler(-10099, store, api)
++
++	unauthorized := telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/deny_staff",
++		ReplyToMessage: &telegram.Message{MessageID: 50, From: &telegram.User{ID: 8, FirstName: "Sales"}},
++	}}
++	if err := h.Handle(context.Background(), unauthorized); err != nil {
++		t.Fatal(err)
++	}
++	if store.staffVisibility[1001][8] {
++		t.Fatal("non-admin changed staff visibility")
++	}
++
++	deny := unauthorized
++	deny.Message = &telegram.Message{
++		MessageID: 61, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/deny_staff",
++		ReplyToMessage: &telegram.Message{MessageID: 50, From: &telegram.User{ID: 7, FirstName: "Tech"}},
++	}
++	if err := h.Handle(context.Background(), deny); err != nil {
++		t.Fatal(err)
++	}
++	if store.staffVisibility[1001][7] {
++		t.Fatal("staff remained visible")
++	}
++	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 62, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/staff",
++	}}); err != nil {
++		t.Fatal(err)
++	}
++	if len(api.texts) != 3 || !strings.Contains(api.texts[2], "没有已授权") {
++		t.Fatalf("texts=%v", api.texts)
++	}
++}
++
++func TestAdminHidesPublishedWebMessageAndAppendsTombstone(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: -1001, TopicID: 12, PublicID: "wc_1", Channel: "web", DisplayName: "Ada"}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.webMessages = []WebMessage{{ID: "wm_1", ConversationID: "wc_1", Direction: "staff", Text: "visible", Visible: true}}
++	store.saved = []MessageLink{{UserID: -1001, TopicMessageID: 50, WebMessageID: "wm_1"}}
++	h := NewHandler(-10099, store, api)
++	original := &telegram.Message{MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "visible"}
++	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/hide", ReplyToMessage: original,
++	}}); err != nil {
++		t.Fatal(err)
++	}
++	if store.webMessages[0].Visible || len(store.webMessages) != 2 || store.webMessages[1].Event != "message_hidden" || store.webMessages[1].TargetMessageID != "wm_1" {
++		t.Fatalf("web messages=%#v", store.webMessages)
++	}
++}
++
++func TestClearUserDeletesOnlyPrivateCopiesAndKeepsTopicHistory(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	c := Conversation{UserID: 1001, TopicID: 12}
++	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
++	store.saved = []MessageLink{
++		{UserID: 1001, UserMessageID: 80, TopicMessageID: 40},
++		{UserID: 1001, UserMessageID: 81, TopicMessageID: 41},
++	}
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/clear_user confirm",
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(api.deleteBatches) != 1 || api.deleteBatches[0].chatID != 1001 || len(api.deleteBatches[0].messageIDs) != 2 {
++		t.Fatalf("batches=%v", api.deleteBatches)
++	}
++	if len(api.deletedTopics) != 0 || len(store.saved) != 4 {
++		t.Fatalf("topics=%v links=%v", api.deletedTopics, store.saved)
++	}
++	for _, link := range store.saved[:2] {
++		if link.UserMessageID != 0 || link.TopicMessageID == 0 {
++			t.Fatalf("link=%#v", link)
++		}
++	}
++	if store.saved[2].TopicMessageID != 70 || store.saved[3].TopicMessageID != 77 {
++		t.Fatalf("command links=%#v", store.saved[2:])
++	}
++}
++
++func TestDeleteAfterUserOnlyClearRemovesTheRepliedTopicMapping(t *testing.T) {
++	store, api := newFakeStore(), &fakeTelegram{}
++	store.saved = []MessageLink{
++		{UserID: 1001, TopicMessageID: 40},
++		{UserID: 1001, TopicMessageID: 41},
++	}
++	h := NewHandler(-10099, store, api)
++	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
++		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/delete",
++		ReplyToMessage: &telegram.Message{MessageID: 41},
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(store.saved) != 1 || store.saved[0].TopicMessageID != 40 {
++		t.Fatalf("links=%#v", store.saved)
++	}
++	want := []deleteCall{{-10099, 41}, {-10099, 70}}
++	if len(api.deletes) != len(want) || api.deletes[0] != want[0] || api.deletes[1] != want[1] {
++		t.Fatalf("deletes=%#v want=%#v", api.deletes, want)
 +	}
 +}
 diff --git a/internal/config/config.go b/internal/config/config.go
 new file mode 100644
-index 0000000..202f9a5
+index 0000000..b674475
 --- /dev/null
 +++ b/internal/config/config.go
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,63 @@
 +package config
 +
 +import (
@@ -1223,18 +2941,27 @@ index 0000000..202f9a5
 +)
 +
 +type Config struct {
-+	BotToken       string
-+	SupportGroupID int64
-+	DataFile       string
++	BotToken              string
++	SupportGroupID        int64
++	DataFile              string
++	HTTPAddr              string
++	WebAPIKey             string
++	WebAllowedOrigins     []string
++	WebRateLimitPerMinute int
 +}
 +
 +func Load(getenv func(string) string) (Config, error) {
 +	cfg := Config{
-+		BotToken: strings.TrimSpace(getenv("BOT_TOKEN")),
-+		DataFile: strings.TrimSpace(getenv("DATA_FILE")),
++		BotToken:  strings.TrimSpace(getenv("BOT_TOKEN")),
++		DataFile:  strings.TrimSpace(getenv("DATA_FILE")),
++		HTTPAddr:  strings.TrimSpace(getenv("HTTP_ADDR")),
++		WebAPIKey: strings.TrimSpace(getenv("WEB_API_KEY")),
 +	}
 +	if cfg.BotToken == "" {
 +		return Config{}, fmt.Errorf("BOT_TOKEN is required")
++	}
++	if cfg.WebAPIKey == "" {
++		return Config{}, fmt.Errorf("WEB_API_KEY is required")
 +	}
 +	group := strings.TrimSpace(getenv("SUPPORT_GROUP_ID"))
 +	if group == "" {
@@ -1248,38 +2975,62 @@ index 0000000..202f9a5
 +	if cfg.DataFile == "" {
 +		cfg.DataFile = "./data/forumdesk.json"
 +	}
++	if cfg.HTTPAddr == "" {
++		cfg.HTTPAddr = ":8080"
++	}
++	for _, origin := range strings.Split(getenv("WEB_ALLOWED_ORIGINS"), ",") {
++		if origin = strings.TrimSpace(origin); origin != "" {
++			cfg.WebAllowedOrigins = append(cfg.WebAllowedOrigins, origin)
++		}
++	}
++	limitValue := strings.TrimSpace(getenv("WEB_RATE_LIMIT_PER_MINUTE"))
++	if limitValue == "" {
++		cfg.WebRateLimitPerMinute = 60
++	} else {
++		limit, err := strconv.Atoi(limitValue)
++		if err != nil || limit < 1 || limit > 10000 {
++			return Config{}, fmt.Errorf("WEB_RATE_LIMIT_PER_MINUTE must be between 1 and 10000")
++		}
++		cfg.WebRateLimitPerMinute = limit
++	}
 +	return cfg, nil
 +}
 diff --git a/internal/config/config_test.go b/internal/config/config_test.go
 new file mode 100644
-index 0000000..4b991c7
+index 0000000..0d2573d
 --- /dev/null
 +++ b/internal/config/config_test.go
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,51 @@
 +package config
 +
 +import "testing"
 +
 +func TestLoad(t *testing.T) {
 +	env := map[string]string{
-+		"BOT_TOKEN":        "token",
-+		"SUPPORT_GROUP_ID": "-1001234567890",
-+		"DATA_FILE":        "/data/forumdesk.json",
++		"BOT_TOKEN":                 "token",
++		"SUPPORT_GROUP_ID":          "-1001234567890",
++		"DATA_FILE":                 "/data/forumdesk.json",
++		"WEB_API_KEY":               "web-secret",
++		"HTTP_ADDR":                 ":9090",
++		"WEB_ALLOWED_ORIGINS":       "https://one.test, https://two.test",
++		"WEB_RATE_LIMIT_PER_MINUTE": "90",
 +	}
 +	cfg, err := Load(func(key string) string { return env[key] })
 +	if err != nil {
 +		t.Fatalf("Load() error = %v", err)
 +	}
-+	if cfg.BotToken != "token" || cfg.SupportGroupID != -1001234567890 || cfg.DataFile != env["DATA_FILE"] {
++	if cfg.BotToken != "token" || cfg.SupportGroupID != -1001234567890 || cfg.DataFile != env["DATA_FILE"] || cfg.WebAPIKey != "web-secret" || cfg.HTTPAddr != ":9090" || cfg.WebRateLimitPerMinute != 90 || len(cfg.WebAllowedOrigins) != 2 {
 +		t.Fatalf("unexpected config: %#v", cfg)
 +	}
 +}
 +
 +func TestLoadRejectsMissingAndInvalidValues(t *testing.T) {
 +	tests := []map[string]string{
-+		{"SUPPORT_GROUP_ID": "-1001"},
-+		{"BOT_TOKEN": "token"},
-+		{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "not-a-number"},
++		{"SUPPORT_GROUP_ID": "-1001", "WEB_API_KEY": "key"},
++		{"BOT_TOKEN": "token", "WEB_API_KEY": "key"},
++		{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "not-a-number", "WEB_API_KEY": "key"},
++		{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "-1001"},
++		{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "-1001", "WEB_API_KEY": "key", "WEB_RATE_LIMIT_PER_MINUTE": "zero"},
 +	}
 +	for _, env := range tests {
 +		if _, err := Load(func(key string) string { return env[key] }); err == nil {
@@ -1289,7 +3040,7 @@ index 0000000..4b991c7
 +}
 +
 +func TestLoadUsesDefaultDataFile(t *testing.T) {
-+	env := map[string]string{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "-1001"}
++	env := map[string]string{"BOT_TOKEN": "token", "SUPPORT_GROUP_ID": "-1001", "WEB_API_KEY": "key"}
 +	cfg, err := Load(func(key string) string { return env[key] })
 +	if err != nil {
 +		t.Fatal(err)
@@ -1297,13 +3048,16 @@ index 0000000..4b991c7
 +	if cfg.DataFile != "./data/forumdesk.json" {
 +		t.Fatalf("data file=%q", cfg.DataFile)
 +	}
++	if cfg.HTTPAddr != ":8080" || cfg.WebRateLimitPerMinute != 60 {
++		t.Fatalf("web defaults=%#v", cfg)
++	}
 +}
 diff --git a/internal/store/file.go b/internal/store/file.go
 new file mode 100644
-index 0000000..80e688d
+index 0000000..439f01b
 --- /dev/null
 +++ b/internal/store/file.go
-@@ -0,0 +1,175 @@
+@@ -0,0 +1,369 @@
 +package store
 +
 +import (
@@ -1319,8 +3073,11 @@ index 0000000..80e688d
 +)
 +
 +type fileData struct {
-+	Conversations map[string]bot.Conversation `json:"conversations"`
-+	MessageLinks  []bot.MessageLink           `json:"message_links,omitempty"`
++	Conversations   map[string]bot.Conversation `json:"conversations"`
++	MessageLinks    []bot.MessageLink           `json:"message_links,omitempty"`
++	WebMessages     []bot.WebMessage            `json:"web_messages,omitempty"`
++	NextWebSequence int64                       `json:"next_web_sequence,omitempty"`
++	StaffVisibility map[string][]int64          `json:"staff_visibility,omitempty"`
 +}
 +
 +type FileStore struct {
@@ -1330,7 +3087,7 @@ index 0000000..80e688d
 +}
 +
 +func OpenFile(path string) (*FileStore, error) {
-+	s := &FileStore{path: path, data: fileData{Conversations: map[string]bot.Conversation{}}}
++	s := &FileStore{path: path, data: fileData{Conversations: map[string]bot.Conversation{}, StaffVisibility: map[string][]int64{}}}
 +	raw, err := os.ReadFile(path)
 +	if err != nil {
 +		if os.IsNotExist(err) {
@@ -1347,6 +3104,9 @@ index 0000000..80e688d
 +	if s.data.Conversations == nil {
 +		s.data.Conversations = map[string]bot.Conversation{}
 +	}
++	if s.data.StaffVisibility == nil {
++		s.data.StaffVisibility = map[string][]int64{}
++	}
 +	return s, nil
 +}
 +
@@ -1362,6 +3122,17 @@ index 0000000..80e688d
 +	defer s.mu.RUnlock()
 +	for _, c := range s.data.Conversations {
 +		if int64(c.TopicID) == topicID {
++			return c, true, nil
++		}
++	}
++	return bot.Conversation{}, false, nil
++}
++
++func (s *FileStore) ConversationByPublicID(_ context.Context, publicID string) (bot.Conversation, bool, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	for _, c := range s.data.Conversations {
++		if c.PublicID == publicID {
 +			return c, true, nil
 +		}
 +	}
@@ -1423,11 +3194,16 @@ index 0000000..80e688d
 +	return bot.MessageLink{}, false, nil
 +}
 +
-+func (s *FileStore) DeleteMessageLink(_ context.Context, userID int64, userMessageID int) error {
++func (s *FileStore) DeleteMessageLink(_ context.Context, target bot.MessageLink) error {
 +	s.mu.Lock()
 +	defer s.mu.Unlock()
 +	for i, link := range s.data.MessageLinks {
-+		if link.UserID != userID || link.UserMessageID != userMessageID {
++		if link.UserID != target.UserID {
++			continue
++		}
++		userMatch := target.UserMessageID != 0 && link.UserMessageID == target.UserMessageID
++		topicMatch := target.TopicMessageID != 0 && link.TopicMessageID == target.TopicMessageID
++		if !userMatch && !topicMatch {
 +			continue
 +		}
 +		removed := link
@@ -1462,6 +3238,178 @@ index 0000000..80e688d
 +	return c, nil
 +}
 +
++func (s *FileStore) MessageLinksByUser(_ context.Context, userID int64) ([]bot.MessageLink, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	links := make([]bot.MessageLink, 0)
++	for _, link := range s.data.MessageLinks {
++		if link.UserID == userID {
++			links = append(links, link)
++		}
++	}
++	return links, nil
++}
++
++func (s *FileStore) AddWebMessage(_ context.Context, message bot.WebMessage) (bot.WebMessage, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	for _, existing := range s.data.WebMessages {
++		if existing.ID == message.ID {
++			return bot.WebMessage{}, fmt.Errorf("web message %s already exists", message.ID)
++		}
++	}
++	previousSequence := s.data.NextWebSequence
++	s.data.NextWebSequence++
++	message.Sequence = s.data.NextWebSequence
++	s.data.WebMessages = append(s.data.WebMessages, message)
++	if err := s.persist(); err != nil {
++		s.data.WebMessages = s.data.WebMessages[:len(s.data.WebMessages)-1]
++		s.data.NextWebSequence = previousSequence
++		return bot.WebMessage{}, err
++	}
++	return message, nil
++}
++
++func (s *FileStore) WebMessagesAfter(_ context.Context, conversationID string, after int64, limit int) ([]bot.WebMessage, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	messages := make([]bot.WebMessage, 0, limit)
++	for _, message := range s.data.WebMessages {
++		if message.ConversationID != conversationID || message.Sequence <= after || !message.Visible {
++			continue
++		}
++		messages = append(messages, message)
++		if len(messages) == limit {
++			break
++		}
++	}
++	return messages, nil
++}
++
++func (s *FileStore) WebMessageByID(_ context.Context, messageID string) (bot.WebMessage, bool, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	for _, message := range s.data.WebMessages {
++		if message.ID == messageID {
++			return message, true, nil
++		}
++	}
++	return bot.WebMessage{}, false, nil
++}
++
++func (s *FileStore) SetWebMessageVisible(_ context.Context, messageID string, visible bool) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	for i := range s.data.WebMessages {
++		if s.data.WebMessages[i].ID != messageID {
++			continue
++		}
++		previous := s.data.WebMessages[i].Visible
++		s.data.WebMessages[i].Visible = visible
++		if err := s.persist(); err != nil {
++			s.data.WebMessages[i].Visible = previous
++			return err
++		}
++		return nil
++	}
++	return fmt.Errorf("web message %s not found", messageID)
++}
++
++func (s *FileStore) SetStaffVisibility(_ context.Context, userID, staffID int64, visible bool) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	key := strconv.FormatInt(userID, 10)
++	if _, found := s.data.Conversations[key]; !found {
++		return fmt.Errorf("user %d has no conversation", userID)
++	}
++	previous := append([]int64(nil), s.data.StaffVisibility[key]...)
++	staffIDs := append([]int64(nil), previous...)
++	index := -1
++	for i, id := range staffIDs {
++		if id == staffID {
++			index = i
++			break
++		}
++	}
++	if visible && index == -1 {
++		staffIDs = append(staffIDs, staffID)
++	}
++	if !visible && index >= 0 {
++		staffIDs = append(staffIDs[:index], staffIDs[index+1:]...)
++	}
++	s.data.StaffVisibility[key] = staffIDs
++	if err := s.persist(); err != nil {
++		s.data.StaffVisibility[key] = previous
++		return err
++	}
++	return nil
++}
++
++func (s *FileStore) StaffVisible(_ context.Context, userID, staffID int64) (bool, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	for _, id := range s.data.StaffVisibility[strconv.FormatInt(userID, 10)] {
++		if id == staffID {
++			return true, nil
++		}
++	}
++	return false, nil
++}
++
++func (s *FileStore) VisibleStaff(_ context.Context, userID int64) ([]int64, error) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	return append([]int64(nil), s.data.StaffVisibility[strconv.FormatInt(userID, 10)]...), nil
++}
++
++func (s *FileStore) ReplaceMessageLinksByUser(_ context.Context, userID int64, links []bot.MessageLink) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	for _, link := range links {
++		if link.UserID != userID {
++			return fmt.Errorf("message link user %d does not match conversation user %d", link.UserID, userID)
++		}
++	}
++	previous := append([]bot.MessageLink(nil), s.data.MessageLinks...)
++	kept := make([]bot.MessageLink, 0, len(s.data.MessageLinks)+len(links))
++	for _, link := range s.data.MessageLinks {
++		if link.UserID != userID {
++			kept = append(kept, link)
++		}
++	}
++	s.data.MessageLinks = append(kept, links...)
++	if err := s.persist(); err != nil {
++		s.data.MessageLinks = previous
++		return err
++	}
++	return nil
++}
++
++func (s *FileStore) DeleteConversation(_ context.Context, userID int64) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	key := strconv.FormatInt(userID, 10)
++	c, found := s.data.Conversations[key]
++	if !found {
++		return fmt.Errorf("user %d has no conversation", userID)
++	}
++	previousLinks := append([]bot.MessageLink(nil), s.data.MessageLinks...)
++	delete(s.data.Conversations, key)
++	kept := s.data.MessageLinks[:0]
++	for _, link := range s.data.MessageLinks {
++		if link.UserID != userID {
++			kept = append(kept, link)
++		}
++	}
++	s.data.MessageLinks = kept
++	if err := s.persist(); err != nil {
++		s.data.Conversations[key] = c
++		s.data.MessageLinks = previousLinks
++		return err
++	}
++	return nil
++}
++
 +func (s *FileStore) persist() error {
 +	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 +		return fmt.Errorf("create data directory: %w", err)
@@ -1481,10 +3429,10 @@ index 0000000..80e688d
 +}
 diff --git a/internal/store/file_test.go b/internal/store/file_test.go
 new file mode 100644
-index 0000000..1564898
+index 0000000..fa59ddc
 --- /dev/null
 +++ b/internal/store/file_test.go
-@@ -0,0 +1,109 @@
+@@ -0,0 +1,235 @@
 +package store
 +
 +import (
@@ -1531,7 +3479,7 @@ index 0000000..1564898
 +	if err != nil || !ok || gotLink != link {
 +		t.Fatalf("topic link=%#v ok=%v err=%v", gotLink, ok, err)
 +	}
-+	if err := reopened.DeleteMessageLink(context.Background(), 101, 1); err != nil {
++	if err := reopened.DeleteMessageLink(context.Background(), link); err != nil {
 +		t.Fatal(err)
 +	}
 +	again, err := OpenFile(path)
@@ -1552,6 +3500,20 @@ index 0000000..1564898
 +	finalConversation, ok, err := finalStore.ConversationByUser(context.Background(), 101)
 +	if err != nil || !ok || !finalConversation.ProtectContent {
 +		t.Fatalf("conversation=%#v ok=%v err=%v", finalConversation, ok, err)
++	}
++	links, err := finalStore.MessageLinksByUser(context.Background(), 101)
++	if err != nil || len(links) != 0 {
++		t.Fatalf("links=%v err=%v", links, err)
++	}
++	if err := finalStore.DeleteConversation(context.Background(), 101); err != nil {
++		t.Fatal(err)
++	}
++	afterDelete, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, ok, _ := afterDelete.ConversationByUser(context.Background(), 101); ok {
++		t.Fatal("conversation still exists")
 +	}
 +}
 +
@@ -1594,12 +3556,124 @@ index 0000000..1564898
 +		t.Fatal("expected duplicate error")
 +	}
 +}
++
++func TestReplaceMessageLinksByUserPreservesConversationAndOtherUsers(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "data.json")
++	s, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	conversation := bot.Conversation{UserID: 101, TopicID: 202, DisplayName: "Ada"}
++	if err := s.CreateConversation(context.Background(), conversation); err != nil {
++		t.Fatal(err)
++	}
++	for _, link := range []bot.MessageLink{
++		{UserID: 101, UserMessageID: 1, TopicMessageID: 11},
++		{UserID: 101, UserMessageID: 2, TopicMessageID: 12},
++		{UserID: 303, UserMessageID: 3, TopicMessageID: 13},
++	} {
++		if err := s.SaveMessageLink(context.Background(), link); err != nil {
++			t.Fatal(err)
++		}
++	}
++	replacement := []bot.MessageLink{{UserID: 101, TopicMessageID: 11}, {UserID: 101, TopicMessageID: 12}}
++	if err := s.ReplaceMessageLinksByUser(context.Background(), 101, replacement); err != nil {
++		t.Fatal(err)
++	}
++	if err := s.ReplaceMessageLinksByUser(context.Background(), 101, []bot.MessageLink{{UserID: 999}}); err == nil {
++		t.Fatal("expected mismatched user error")
++	}
++	reopened, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got, found, _ := reopened.ConversationByUser(context.Background(), 101); !found || got != conversation {
++		t.Fatalf("conversation=%#v found=%v", got, found)
++	}
++	links, err := reopened.MessageLinksByUser(context.Background(), 101)
++	if err != nil || len(links) != 2 || links[0].UserMessageID != 0 || links[1].UserMessageID != 0 {
++		t.Fatalf("links=%#v err=%v", links, err)
++	}
++	other, err := reopened.MessageLinksByUser(context.Background(), 303)
++	if err != nil || len(other) != 1 || other[0].UserMessageID != 3 {
++		t.Fatalf("other=%#v err=%v", other, err)
++	}
++}
++
++func TestWebMessagesAndStaffVisibilityPersist(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "data.json")
++	s, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	conversation := bot.Conversation{UserID: -101, TopicID: 202, PublicID: "wc_test", Channel: "web", DisplayName: "Ada"}
++	if err := s.CreateConversation(context.Background(), conversation); err != nil {
++		t.Fatal(err)
++	}
++	if err := s.SetStaffVisibility(context.Background(), conversation.UserID, 7001, true); err != nil {
++		t.Fatal(err)
++	}
++	first, err := s.AddWebMessage(context.Background(), bot.WebMessage{ID: "wm_1", ConversationID: "wc_test", Text: "hello", Visible: true})
++	if err != nil {
++		t.Fatal(err)
++	}
++	second, err := s.AddWebMessage(context.Background(), bot.WebMessage{ID: "wm_2", ConversationID: "wc_test", Text: "internal", Visible: false})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if first.Sequence != 1 || second.Sequence != 2 {
++		t.Fatalf("sequences=%d,%d", first.Sequence, second.Sequence)
++	}
++	if err := s.SetWebMessageVisible(context.Background(), "wm_2", true); err != nil {
++		t.Fatal(err)
++	}
++
++	reopened, err := OpenFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	got, found, err := reopened.ConversationByPublicID(context.Background(), "wc_test")
++	if err != nil || !found || got != conversation {
++		t.Fatalf("conversation=%#v found=%v err=%v", got, found, err)
++	}
++	allowed, err := reopened.StaffVisible(context.Background(), conversation.UserID, 7001)
++	if err != nil || !allowed {
++		t.Fatalf("allowed=%v err=%v", allowed, err)
++	}
++	visibleStaff, err := reopened.VisibleStaff(context.Background(), conversation.UserID)
++	if err != nil || len(visibleStaff) != 1 || visibleStaff[0] != 7001 {
++		t.Fatalf("visible staff=%v err=%v", visibleStaff, err)
++	}
++	if err := reopened.SetStaffVisibility(context.Background(), conversation.UserID, 7001, false); err != nil {
++		t.Fatal(err)
++	}
++	if allowed, err := reopened.StaffVisible(context.Background(), conversation.UserID, 7001); err != nil || allowed {
++		t.Fatalf("revoked staff allowed=%v err=%v", allowed, err)
++	}
++	messages, err := reopened.WebMessagesAfter(context.Background(), "wc_test", 1, 10)
++	if err != nil || len(messages) != 1 || messages[0].ID != "wm_2" || !messages[0].Visible {
++		t.Fatalf("messages=%#v err=%v", messages, err)
++	}
++	message, found, err := reopened.WebMessageByID(context.Background(), "wm_2")
++	if err != nil || !found || message.ID != "wm_2" {
++		t.Fatalf("message=%#v found=%v err=%v", message, found, err)
++	}
++	if _, found, err := reopened.WebMessageByID(context.Background(), "missing"); err != nil || found {
++		t.Fatalf("missing found=%v err=%v", found, err)
++	}
++	if err := reopened.SetWebMessageVisible(context.Background(), "missing", true); err == nil {
++		t.Fatal("expected missing web message error")
++	}
++	if err := reopened.SetStaffVisibility(context.Background(), 404, 7001, true); err == nil {
++		t.Fatal("expected missing conversation error")
++	}
++}
 diff --git a/internal/telegram/client.go b/internal/telegram/client.go
 new file mode 100644
-index 0000000..9321d0f
+index 0000000..284b35d
 --- /dev/null
 +++ b/internal/telegram/client.go
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,213 @@
 +package telegram
 +
 +import (
@@ -1685,6 +3759,24 @@ index 0000000..9321d0f
 +	return c.call(ctx, "deleteMessage", map[string]any{"chat_id": chatID, "message_id": messageID}, nil)
 +}
 +
++func (c *Client) DeleteMessages(ctx context.Context, chatID int64, messageIDs []int) error {
++	return c.call(ctx, "deleteMessages", map[string]any{"chat_id": chatID, "message_ids": messageIDs}, nil)
++}
++
++func (c *Client) DeleteForumTopic(ctx context.Context, chatID int64, topicID int) error {
++	return c.call(ctx, "deleteForumTopic", map[string]any{"chat_id": chatID, "message_thread_id": topicID}, nil)
++}
++
++func (c *Client) IsChatAdministrator(ctx context.Context, chatID, userID int64) (bool, error) {
++	var result struct {
++		Status string `json:"status"`
++	}
++	if err := c.call(ctx, "getChatMember", map[string]any{"chat_id": chatID, "user_id": userID}, &result); err != nil {
++		return false, err
++	}
++	return result.Status == "administrator" || result.Status == "creator", nil
++}
++
 +func (c *Client) CreateForumTopic(ctx context.Context, chatID int64, name string) (int, error) {
 +	var result struct {
 +		MessageThreadID int `json:"message_thread_id"`
@@ -1725,11 +3817,29 @@ index 0000000..9321d0f
 +	commands := []map[string]string{
 +		{"command": "protect", "description": "内容保护状态或开关：/protect on|off"},
 +		{"command": "delete", "description": "回复一条消息后双端删除"},
++		{"command": "clear", "description": "清空双方消息，保留 Topic 和资料卡"},
++		{"command": "clear_user", "description": "仅清空用户端，保留管理端历史"},
++		{"command": "allow_staff", "description": "回复成员消息，允许其发言对客可见"},
++		{"command": "deny_staff", "description": "回复成员消息，恢复仅内部可见"},
++		{"command": "show", "description": "回复消息，单独设为对客可见"},
++		{"command": "hide", "description": "回复消息，单独设为仅内部可见"},
++		{"command": "staff", "description": "查看当前 Topic 已授权成员"},
 +		{"command": "help", "description": "显示管理员命令说明"},
 +	}
 +	return c.call(ctx, "setMyCommands", map[string]any{
 +		"commands": commands,
 +		"scope":    map[string]any{"type": "chat_administrators", "chat_id": chatID},
++	}, nil)
++}
++
++func (c *Client) SetPrivateCommands(ctx context.Context) error {
++	commands := []map[string]string{
++		{"command": "delete", "description": "回复一条消息后双端删除"},
++		{"command": "help", "description": "显示可用命令"},
++	}
++	return c.call(ctx, "setMyCommands", map[string]any{
++		"commands": commands,
++		"scope":    map[string]string{"type": "all_private_chats"},
 +	}, nil)
 +}
 +
@@ -1779,10 +3889,10 @@ index 0000000..9321d0f
 +}
 diff --git a/internal/telegram/client_test.go b/internal/telegram/client_test.go
 new file mode 100644
-index 0000000..60fe14f
+index 0000000..d4ddaf8
 --- /dev/null
 +++ b/internal/telegram/client_test.go
-@@ -0,0 +1,183 @@
+@@ -0,0 +1,231 @@
 +package telegram
 +
 +import (
@@ -1925,8 +4035,56 @@ index 0000000..60fe14f
 +	}
 +	scope := (*payload)["scope"].(map[string]any)
 +	commands := (*payload)["commands"].([]any)
-+	if scope["type"] != "chat_administrators" || scope["chat_id"] != float64(-1001) || len(commands) != 3 {
++	if scope["type"] != "chat_administrators" || scope["chat_id"] != float64(-1001) || len(commands) != 10 {
 +		t.Fatalf("payload=%v", *payload)
++	}
++	if commands[3].(map[string]any)["command"] != "clear_user" {
++		t.Fatalf("commands=%v", commands)
++	}
++}
++
++func TestIsChatAdministrator(t *testing.T) {
++	c, payload, path := testClient(t, map[string]any{"status": "administrator"})
++	admin, err := c.IsChatAdministrator(context.Background(), -1001, 7001)
++	if err != nil || !admin || *path != "/getChatMember" || (*payload)["user_id"] != float64(7001) {
++		t.Fatalf("admin=%v path=%s payload=%v err=%v", admin, *path, *payload, err)
++	}
++	c, _, _ = testClient(t, map[string]any{"status": "member"})
++	admin, err = c.IsChatAdministrator(context.Background(), -1001, 7001)
++	if err != nil || admin {
++		t.Fatalf("admin=%v err=%v", admin, err)
++	}
++}
++
++func TestPrivateCommandMenu(t *testing.T) {
++	c, payload, path := testClient(t, true)
++	if err := c.SetPrivateCommands(context.Background()); err != nil {
++		t.Fatal(err)
++	}
++	if *path != "/setMyCommands" {
++		t.Fatalf("path=%s", *path)
++	}
++	scope := (*payload)["scope"].(map[string]any)
++	commands := (*payload)["commands"].([]any)
++	if scope["type"] != "all_private_chats" || len(commands) != 2 {
++		t.Fatalf("payload=%v", *payload)
++	}
++}
++
++func TestDeleteMessagesAndForumTopic(t *testing.T) {
++	c, payload, path := testClient(t, true)
++	if err := c.DeleteMessages(context.Background(), 7, []int{1, 2}); err != nil {
++		t.Fatal(err)
++	}
++	if *path != "/deleteMessages" || len((*payload)["message_ids"].([]any)) != 2 {
++		t.Fatalf("path=%s payload=%v", *path, *payload)
++	}
++	c, payload, path = testClient(t, true)
++	if err := c.DeleteForumTopic(context.Background(), -1001, 42); err != nil {
++		t.Fatal(err)
++	}
++	if *path != "/deleteForumTopic" || (*payload)["message_thread_id"] != float64(42) {
++		t.Fatalf("path=%s payload=%v", *path, *payload)
 +	}
 +}
 +
@@ -2008,9 +4166,1109 @@ index 0000000..5851e81
 +	ReplyToMessageID int
 +	ProtectContent   bool
 +}
+diff --git a/internal/webapi/server.go b/internal/webapi/server.go
+new file mode 100644
+index 0000000..68b9e57
+--- /dev/null
++++ b/internal/webapi/server.go
+@@ -0,0 +1,380 @@
++package webapi
++
++import (
++	"context"
++	"crypto/rand"
++	"crypto/sha256"
++	"crypto/subtle"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"hash/fnv"
++	"net/http"
++	"net/url"
++	"strconv"
++	"strings"
++	"sync"
++	"time"
++
++	"forumdesk/internal/bot"
++)
++
++const maxRequestBody = 16 << 10
++
++type Store interface {
++	ConversationByPublicID(context.Context, string) (bot.Conversation, bool, error)
++	CreateConversation(context.Context, bot.Conversation) error
++	AddWebMessage(context.Context, bot.WebMessage) (bot.WebMessage, error)
++	WebMessagesAfter(context.Context, string, int64, int) ([]bot.WebMessage, error)
++	WebMessageByID(context.Context, string) (bot.WebMessage, bool, error)
++	SaveMessageLink(context.Context, bot.MessageLink) error
++}
++
++type Telegram interface {
++	CreateForumTopic(context.Context, int64, string) (int, error)
++	SendMessage(context.Context, int64, string, int) (int, error)
++	SendReplyMessage(context.Context, int64, string, int, int) (int, error)
++}
++
++type Config struct {
++	APIKey             string
++	SupportGroupID     int64
++	AllowedOrigins     []string
++	RateLimitPerMinute int
++}
++
++type handler struct {
++	config   Config
++	store    Store
++	telegram Telegram
++	limiter  *rateLimiter
++}
++
++type rateWindow struct {
++	started time.Time
++	count   int
++}
++
++type rateLimiter struct {
++	mu      sync.Mutex
++	limit   int
++	windows map[string]rateWindow
++}
++
++func New(config Config, store Store, telegram Telegram) http.Handler {
++	if config.RateLimitPerMinute <= 0 {
++		config.RateLimitPerMinute = 60
++	}
++	h := &handler{
++		config: config, store: store, telegram: telegram,
++		limiter: &rateLimiter{limit: config.RateLimitPerMinute, windows: map[string]rateWindow{}},
++	}
++	mux := http.NewServeMux()
++	mux.HandleFunc("GET /healthz", h.health)
++	mux.HandleFunc("POST /api/v1/conversations", h.createConversation)
++	mux.HandleFunc("POST /api/v1/conversations/{conversation_id}/messages", h.createMessage)
++	mux.HandleFunc("GET /api/v1/conversations/{conversation_id}/messages", h.listMessages)
++	return h.middleware(mux)
++}
++
++func (h *handler) middleware(next http.Handler) http.Handler {
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("X-Content-Type-Options", "nosniff")
++		w.Header().Set("X-Frame-Options", "DENY")
++		w.Header().Set("Referrer-Policy", "no-referrer")
++		w.Header().Set("Cache-Control", "no-store")
++		if origin := r.Header.Get("Origin"); origin != "" && h.originAllowed(origin) {
++			w.Header().Set("Access-Control-Allow-Origin", origin)
++			w.Header().Set("Vary", "Origin")
++			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
++			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
++		}
++		if r.Method == http.MethodOptions {
++			w.WriteHeader(http.StatusNoContent)
++			return
++		}
++		next.ServeHTTP(w, r)
++	})
++}
++
++func (h *handler) health(w http.ResponseWriter, _ *http.Request) {
++	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]string{"status": "ok"}})
++}
++
++func (h *handler) createConversation(w http.ResponseWriter, r *http.Request) {
++	if !secureEqual(bearerToken(r), h.config.APIKey) {
++		writeError(w, http.StatusUnauthorized, "unauthorized", "Invalid integration API key")
++		return
++	}
++	if !h.limiter.allow("integration:" + bearerToken(r)) {
++		w.Header().Set("Retry-After", "60")
++		writeError(w, http.StatusTooManyRequests, "rate_limit_exceeded", "Rate limit exceeded")
++		return
++	}
++	var input struct {
++		VisitorName string `json:"visitor_name"`
++		Email       string `json:"email"`
++		ExternalID  string `json:"external_id"`
++		PageURL     string `json:"page_url"`
++	}
++	if err := decodeJSON(w, r, &input); err != nil {
++		return
++	}
++	input.VisitorName = strings.TrimSpace(input.VisitorName)
++	input.Email = strings.TrimSpace(input.Email)
++	input.ExternalID = strings.TrimSpace(input.ExternalID)
++	input.PageURL = strings.TrimSpace(input.PageURL)
++	if input.VisitorName == "" || len([]rune(input.VisitorName)) > 128 || len(input.Email) > 254 || len(input.ExternalID) > 128 || !validPageURL(input.PageURL) {
++		writeError(w, http.StatusUnprocessableEntity, "validation_error", "visitor_name or metadata is invalid")
++		return
++	}
++	publicID, err := randomValue("wc_", 12)
++	if err != nil {
++		writeError(w, http.StatusInternalServerError, "internal_error", "Internal error")
++		return
++	}
++	visitorToken, err := randomValue("wv_", 32)
++	if err != nil {
++		writeError(w, http.StatusInternalServerError, "internal_error", "Internal error")
++		return
++	}
++	topicName := "🌐 " + input.VisitorName + " · " + publicID
++	if len([]rune(topicName)) > 128 {
++		topicName = string([]rune(topicName)[:128])
++	}
++	topicID, err := h.telegram.CreateForumTopic(r.Context(), h.config.SupportGroupID, topicName)
++	if err != nil {
++		writeError(w, http.StatusBadGateway, "telegram_error", "Telegram topic creation failed")
++		return
++	}
++	now := time.Now().UTC()
++	c := bot.Conversation{
++		UserID: internalID(publicID), TopicID: topicID, PublicID: publicID, Channel: "web",
++		VisitorToken: tokenHash(visitorToken), VisitorEmail: input.Email, ExternalID: input.ExternalID,
++		PageURL: input.PageURL, DisplayName: input.VisitorName, CreatedAt: now,
++	}
++	if err := h.store.CreateConversation(r.Context(), c); err != nil {
++		writeError(w, http.StatusConflict, "conversation_conflict", "Conversation could not be created")
++		return
++	}
++	card := fmt.Sprintf("🌐 网页客户资料\n名称：%s\n邮箱：%s\n外部 ID：%s\n来源页：%s\n会话 ID：%s", input.VisitorName, valueOrDash(input.Email), valueOrDash(input.ExternalID), valueOrDash(input.PageURL), publicID)
++	_, _ = h.telegram.SendMessage(r.Context(), h.config.SupportGroupID, card, topicID)
++	w.Header().Set("Location", "/api/v1/conversations/"+publicID)
++	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{
++		"id": publicID, "visitor_token": visitorToken, "status": "open", "created_at": now,
++	}})
++}
++
++func (h *handler) createMessage(w http.ResponseWriter, r *http.Request) {
++	c, ok := h.authorizeVisitor(w, r)
++	if !ok {
++		return
++	}
++	if !h.limiter.allow("visitor:" + c.PublicID) {
++		w.Header().Set("Retry-After", "60")
++		writeError(w, http.StatusTooManyRequests, "rate_limit_exceeded", "Rate limit exceeded")
++		return
++	}
++	var input struct {
++		Text             string `json:"text"`
++		ReplyToMessageID string `json:"reply_to_message_id"`
++	}
++	if err := decodeJSON(w, r, &input); err != nil {
++		return
++	}
++	input.Text = strings.TrimSpace(input.Text)
++	input.ReplyToMessageID = strings.TrimSpace(input.ReplyToMessageID)
++	if input.Text == "" || len([]rune(input.Text)) > 4000 {
++		writeError(w, http.StatusUnprocessableEntity, "validation_error", "text must contain 1 to 4000 characters")
++		return
++	}
++	replyTopicMessageID := 0
++	if input.ReplyToMessageID != "" {
++		target, found, err := h.store.WebMessageByID(r.Context(), input.ReplyToMessageID)
++		if err != nil {
++			writeError(w, http.StatusInternalServerError, "storage_error", "Reply target could not be loaded")
++			return
++		}
++		if !found || target.ConversationID != c.PublicID || !target.Visible || target.TopicMessageID == 0 {
++			writeError(w, http.StatusUnprocessableEntity, "invalid_reply_target", "reply_to_message_id is not a visible message in this conversation")
++			return
++		}
++		replyTopicMessageID = target.TopicMessageID
++	}
++	var (
++		topicMessageID int
++		err            error
++	)
++	if replyTopicMessageID != 0 {
++		topicMessageID, err = h.telegram.SendReplyMessage(r.Context(), h.config.SupportGroupID, "🌐 客户：\n"+input.Text, c.TopicID, replyTopicMessageID)
++	} else {
++		topicMessageID, err = h.telegram.SendMessage(r.Context(), h.config.SupportGroupID, "🌐 客户：\n"+input.Text, c.TopicID)
++	}
++	if err != nil {
++		writeError(w, http.StatusBadGateway, "telegram_error", "Message delivery to Telegram failed")
++		return
++	}
++	messageID, err := randomValue("wm_", 12)
++	if err != nil {
++		writeError(w, http.StatusInternalServerError, "internal_error", "Internal error")
++		return
++	}
++	message, err := h.store.AddWebMessage(r.Context(), bot.WebMessage{
++		ID: messageID, ConversationID: c.PublicID, Direction: "customer", Text: input.Text,
++		ReplyToMessageID: input.ReplyToMessageID,
++		TopicMessageID:   topicMessageID, Visible: true, CreatedAt: time.Now().UTC(),
++	})
++	if err != nil {
++		writeError(w, http.StatusInternalServerError, "storage_error", "Message could not be stored")
++		return
++	}
++	if err := h.store.SaveMessageLink(r.Context(), bot.MessageLink{UserID: c.UserID, TopicMessageID: topicMessageID, WebMessageID: message.ID, CreatedAt: message.CreatedAt}); err != nil {
++		writeError(w, http.StatusInternalServerError, "storage_error", "Message mapping could not be stored")
++		return
++	}
++	writeJSON(w, http.StatusCreated, map[string]any{"data": message})
++}
++
++func (h *handler) listMessages(w http.ResponseWriter, r *http.Request) {
++	c, ok := h.authorizeVisitor(w, r)
++	if !ok {
++		return
++	}
++	after, err := strconv.ParseInt(defaultValue(r.URL.Query().Get("after"), "0"), 10, 64)
++	if err != nil || after < 0 {
++		writeError(w, http.StatusBadRequest, "invalid_cursor", "after must be a non-negative integer")
++		return
++	}
++	limit, err := strconv.Atoi(defaultValue(r.URL.Query().Get("limit"), "50"))
++	if err != nil || limit < 1 || limit > 100 {
++		writeError(w, http.StatusBadRequest, "invalid_limit", "limit must be between 1 and 100")
++		return
++	}
++	messages, err := h.store.WebMessagesAfter(r.Context(), c.PublicID, after, limit)
++	if err != nil {
++		writeError(w, http.StatusInternalServerError, "storage_error", "Messages could not be loaded")
++		return
++	}
++	next := after
++	if len(messages) > 0 {
++		next = messages[len(messages)-1].Sequence
++	}
++	writeJSON(w, http.StatusOK, map[string]any{"data": messages, "meta": map[string]any{"next_cursor": next}})
++}
++
++func (h *handler) authorizeVisitor(w http.ResponseWriter, r *http.Request) (bot.Conversation, bool) {
++	id := r.PathValue("conversation_id")
++	c, found, err := h.store.ConversationByPublicID(r.Context(), id)
++	if err != nil {
++		writeError(w, http.StatusInternalServerError, "storage_error", "Conversation could not be loaded")
++		return bot.Conversation{}, false
++	}
++	if !found || c.Channel != "web" || !secureEqual(tokenHash(bearerToken(r)), c.VisitorToken) {
++		writeError(w, http.StatusUnauthorized, "unauthorized", "Invalid conversation credentials")
++		return bot.Conversation{}, false
++	}
++	return c, true
++}
++
++func (l *rateLimiter) allow(key string) bool {
++	l.mu.Lock()
++	defer l.mu.Unlock()
++	now := time.Now()
++	w, found := l.windows[key]
++	if !found || now.Sub(w.started) >= time.Minute {
++		l.windows[key] = rateWindow{started: now, count: 1}
++		return true
++	}
++	if w.count >= l.limit {
++		return false
++	}
++	w.count++
++	l.windows[key] = w
++	return true
++}
++
++func (h *handler) originAllowed(origin string) bool {
++	for _, allowed := range h.config.AllowedOrigins {
++		if subtle.ConstantTimeCompare([]byte(origin), []byte(allowed)) == 1 {
++			return true
++		}
++	}
++	return false
++}
++
++func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
++	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxRequestBody))
++	decoder.DisallowUnknownFields()
++	if err := decoder.Decode(dst); err != nil {
++		writeError(w, http.StatusBadRequest, "invalid_json", "Invalid JSON request body")
++		return err
++	}
++	return nil
++}
++
++func writeJSON(w http.ResponseWriter, status int, value any) {
++	w.Header().Set("Content-Type", "application/json; charset=utf-8")
++	w.WriteHeader(status)
++	_ = json.NewEncoder(w).Encode(value)
++}
++
++func writeError(w http.ResponseWriter, status int, code, message string) {
++	writeJSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": message}})
++}
++
++func bearerToken(r *http.Request) string {
++	value := strings.TrimSpace(r.Header.Get("Authorization"))
++	if len(value) < 8 || !strings.EqualFold(value[:7], "Bearer ") {
++		return ""
++	}
++	return strings.TrimSpace(value[7:])
++}
++
++func tokenHash(value string) string {
++	sum := sha256.Sum256([]byte(value))
++	return hex.EncodeToString(sum[:])
++}
++
++func secureEqual(a, b string) bool {
++	return a != "" && b != "" && len(a) == len(b) && subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
++}
++
++func randomValue(prefix string, size int) (string, error) {
++	raw := make([]byte, size)
++	if _, err := rand.Read(raw); err != nil {
++		return "", err
++	}
++	return prefix + hex.EncodeToString(raw), nil
++}
++
++func internalID(publicID string) int64 {
++	h := fnv.New64a()
++	_, _ = h.Write([]byte(publicID))
++	value := int64(h.Sum64() & ((1 << 63) - 1))
++	if value == 0 {
++		value = 1
++	}
++	return -value
++}
++
++func validPageURL(value string) bool {
++	if value == "" {
++		return true
++	}
++	parsed, err := url.ParseRequestURI(value)
++	return err == nil && (parsed.Scheme == "https" || parsed.Scheme == "http") && parsed.Host != ""
++}
++
++func valueOrDash(value string) string {
++	if value == "" {
++		return "-"
++	}
++	return value
++}
++
++func defaultValue(value, fallback string) string {
++	if value == "" {
++		return fallback
++	}
++	return value
++}
+diff --git a/internal/webapi/server_test.go b/internal/webapi/server_test.go
+new file mode 100644
+index 0000000..e17593b
+--- /dev/null
++++ b/internal/webapi/server_test.go
+@@ -0,0 +1,355 @@
++package webapi
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync"
++	"testing"
++
++	"forumdesk/internal/bot"
++)
++
++type memoryStore struct {
++	mu            sync.Mutex
++	conversations map[string]bot.Conversation
++	messages      []bot.WebMessage
++	links         []bot.MessageLink
++	lookupErr     error
++	createErr     error
++	addErr        error
++	listErr       error
++	linkErr       error
++}
++
++func newMemoryStore() *memoryStore {
++	return &memoryStore{conversations: map[string]bot.Conversation{}}
++}
++
++func (s *memoryStore) ConversationByPublicID(_ context.Context, id string) (bot.Conversation, bool, error) {
++	if s.lookupErr != nil {
++		return bot.Conversation{}, false, s.lookupErr
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	c, ok := s.conversations[id]
++	return c, ok, nil
++}
++
++func (s *memoryStore) CreateConversation(_ context.Context, c bot.Conversation) error {
++	if s.createErr != nil {
++		return s.createErr
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.conversations[c.PublicID] = c
++	return nil
++}
++
++func (s *memoryStore) AddWebMessage(_ context.Context, m bot.WebMessage) (bot.WebMessage, error) {
++	if s.addErr != nil {
++		return bot.WebMessage{}, s.addErr
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	m.Sequence = int64(len(s.messages) + 1)
++	s.messages = append(s.messages, m)
++	return m, nil
++}
++
++func (s *memoryStore) WebMessagesAfter(_ context.Context, conversationID string, after int64, limit int) ([]bot.WebMessage, error) {
++	if s.listErr != nil {
++		return nil, s.listErr
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	var result []bot.WebMessage
++	for _, message := range s.messages {
++		if message.ConversationID == conversationID && message.Sequence > after && message.Visible {
++			result = append(result, message)
++			if len(result) == limit {
++				break
++			}
++		}
++	}
++	return result, nil
++}
++
++func (s *memoryStore) WebMessageByID(_ context.Context, id string) (bot.WebMessage, bool, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	for _, message := range s.messages {
++		if message.ID == id {
++			return message, true, nil
++		}
++	}
++	return bot.WebMessage{}, false, nil
++}
++
++func (s *memoryStore) SaveMessageLink(_ context.Context, link bot.MessageLink) error {
++	if s.linkErr != nil {
++		return s.linkErr
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.links = append(s.links, link)
++	return nil
++}
++
++type fakeTelegram struct {
++	topicID int
++	sent    []string
++	replies []struct {
++		text              string
++		threadID, replyTo int
++	}
++	topicErr error
++	sendErr  error
++}
++
++func (f *fakeTelegram) CreateForumTopic(context.Context, int64, string) (int, error) {
++	if f.topicErr != nil {
++		return 0, f.topicErr
++	}
++	return f.topicID, nil
++}
++
++func (f *fakeTelegram) SendMessage(_ context.Context, _ int64, text string, _ int) (int, error) {
++	if f.sendErr != nil {
++		return 0, f.sendErr
++	}
++	f.sent = append(f.sent, text)
++	return 88 + len(f.sent), nil
++}
++
++func (f *fakeTelegram) SendReplyMessage(_ context.Context, _ int64, text string, threadID, replyTo int) (int, error) {
++	if f.sendErr != nil {
++		return 0, f.sendErr
++	}
++	f.replies = append(f.replies, struct {
++		text              string
++		threadID, replyTo int
++	}{text, threadID, replyTo})
++	return 188 + len(f.replies), nil
++}
++
++func TestUpstreamAndStorageFailuresReturnStableErrors(t *testing.T) {
++	makeCreate := func(store *memoryStore, telegram *fakeTelegram) *httptest.ResponseRecorder {
++		h := New(Config{APIKey: "key", SupportGroupID: -1001}, store, telegram)
++		r := httptest.NewRequest(http.MethodPost, "/api/v1/conversations", strings.NewReader(`{"visitor_name":"Ada"}`))
++		r.Header.Set("Authorization", "Bearer key")
++		w := httptest.NewRecorder()
++		h.ServeHTTP(w, r)
++		return w
++	}
++
++	w := makeCreate(newMemoryStore(), &fakeTelegram{topicErr: errors.New("telegram down")})
++	if w.Code != http.StatusBadGateway || !strings.Contains(w.Body.String(), "telegram_error") {
++		t.Fatalf("topic failure status=%d body=%s", w.Code, w.Body.String())
++	}
++	w = makeCreate(&memoryStore{conversations: map[string]bot.Conversation{}, createErr: errors.New("duplicate")}, &fakeTelegram{topicID: 42})
++	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "conversation_conflict") {
++		t.Fatalf("create failure status=%d body=%s", w.Code, w.Body.String())
++	}
++
++	conversation := bot.Conversation{PublicID: "wc_test", Channel: "web", VisitorToken: tokenHash("visitor-secret"), TopicID: 42}
++	for name, store := range map[string]*memoryStore{
++		"lookup": {conversations: map[string]bot.Conversation{"wc_test": conversation}, lookupErr: errors.New("read")},
++		"list":   {conversations: map[string]bot.Conversation{"wc_test": conversation}, listErr: errors.New("read")},
++	} {
++		h := New(Config{APIKey: "key", SupportGroupID: -1001}, store, &fakeTelegram{topicID: 42})
++		r := httptest.NewRequest(http.MethodGet, "/api/v1/conversations/wc_test/messages", nil)
++		r.Header.Set("Authorization", "Bearer visitor-secret")
++		w = httptest.NewRecorder()
++		h.ServeHTTP(w, r)
++		if w.Code != http.StatusInternalServerError || !strings.Contains(w.Body.String(), "storage_error") {
++			t.Fatalf("%s failure status=%d body=%s", name, w.Code, w.Body.String())
++		}
++	}
++
++	for name, fixture := range map[string]struct {
++		store    *memoryStore
++		telegram *fakeTelegram
++	}{
++		"telegram": {newMemoryStore(), &fakeTelegram{sendErr: errors.New("send")}},
++		"message":  {&memoryStore{conversations: map[string]bot.Conversation{}, addErr: errors.New("write")}, &fakeTelegram{}},
++		"mapping":  {&memoryStore{conversations: map[string]bot.Conversation{}, linkErr: errors.New("write")}, &fakeTelegram{}},
++	} {
++		store, telegram := fixture.store, fixture.telegram
++		store.conversations["wc_test"] = conversation
++		h := New(Config{APIKey: "key", SupportGroupID: -1001}, store, telegram)
++		r := httptest.NewRequest(http.MethodPost, "/api/v1/conversations/wc_test/messages", strings.NewReader(`{"text":"hello"}`))
++		r.Header.Set("Authorization", "Bearer visitor-secret")
++		w = httptest.NewRecorder()
++		h.ServeHTTP(w, r)
++		if name == "telegram" && w.Code != http.StatusBadGateway {
++			t.Fatalf("%s failure status=%d body=%s", name, w.Code, w.Body.String())
++		}
++		if name != "telegram" && w.Code != http.StatusInternalServerError {
++			t.Fatalf("%s failure status=%d body=%s", name, w.Code, w.Body.String())
++		}
++	}
++}
++
++func TestConversationAndMessageLifecycle(t *testing.T) {
++	store, telegram := newMemoryStore(), &fakeTelegram{topicID: 42}
++	h := New(Config{APIKey: "integration-secret", SupportGroupID: -1001, RateLimitPerMinute: 60}, store, telegram)
++
++	unauthorized := httptest.NewRecorder()
++	h.ServeHTTP(unauthorized, httptest.NewRequest(http.MethodPost, "/api/v1/conversations", strings.NewReader(`{"visitor_name":"Ada"}`)))
++	if unauthorized.Code != http.StatusUnauthorized {
++		t.Fatalf("unauthorized status=%d", unauthorized.Code)
++	}
++
++	create := httptest.NewRequest(http.MethodPost, "/api/v1/conversations", strings.NewReader(`{"visitor_name":"Ada","external_id":"customer-7","page_url":"https://example.test/pricing"}`))
++	create.Header.Set("Authorization", "Bearer integration-secret")
++	create.Header.Set("Content-Type", "application/json")
++	created := httptest.NewRecorder()
++	h.ServeHTTP(created, create)
++	if created.Code != http.StatusCreated {
++		t.Fatalf("create status=%d body=%s", created.Code, created.Body.String())
++	}
++	var createBody struct {
++		Data struct {
++			ID           string `json:"id"`
++			VisitorToken string `json:"visitor_token"`
++		} `json:"data"`
++	}
++	if err := json.Unmarshal(created.Body.Bytes(), &createBody); err != nil {
++		t.Fatal(err)
++	}
++	if createBody.Data.ID == "" || createBody.Data.VisitorToken == "" || len(telegram.sent) != 1 {
++		t.Fatalf("body=%s sent=%v", created.Body.String(), telegram.sent)
++	}
++
++	path := "/api/v1/conversations/" + createBody.Data.ID + "/messages"
++	send := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"text":"I need pricing help"}`))
++	send.Header.Set("Authorization", "Bearer "+createBody.Data.VisitorToken)
++	send.Header.Set("Content-Type", "application/json")
++	sent := httptest.NewRecorder()
++	h.ServeHTTP(sent, send)
++	if sent.Code != http.StatusCreated || len(telegram.sent) != 2 || len(store.links) != 1 {
++		t.Fatalf("send status=%d body=%s telegram=%v links=%v", sent.Code, sent.Body.String(), telegram.sent, store.links)
++	}
++	var sentBody struct {
++		Data bot.WebMessage `json:"data"`
++	}
++	if err := json.Unmarshal(sent.Body.Bytes(), &sentBody); err != nil {
++		t.Fatal(err)
++	}
++	reply := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"text":"Here is more context","reply_to_message_id":"`+sentBody.Data.ID+`"}`))
++	reply.Header.Set("Authorization", "Bearer "+createBody.Data.VisitorToken)
++	replied := httptest.NewRecorder()
++	h.ServeHTTP(replied, reply)
++	if replied.Code != http.StatusCreated || len(telegram.replies) != 1 || telegram.replies[0].replyTo != store.messages[0].TopicMessageID {
++		t.Fatalf("reply status=%d body=%s replies=%#v", replied.Code, replied.Body.String(), telegram.replies)
++	}
++
++	list := httptest.NewRequest(http.MethodGet, path+"?after=0&limit=20", nil)
++	list.Header.Set("Authorization", "Bearer "+createBody.Data.VisitorToken)
++	listed := httptest.NewRecorder()
++	h.ServeHTTP(listed, list)
++	if listed.Code != http.StatusOK || !strings.Contains(listed.Body.String(), "I need pricing help") {
++		t.Fatalf("list status=%d body=%s", listed.Code, listed.Body.String())
++	}
++}
++
++func TestReplyRejectsUnknownOrHiddenTarget(t *testing.T) {
++	store, telegram := newMemoryStore(), &fakeTelegram{topicID: 42}
++	store.conversations["wc_test"] = bot.Conversation{PublicID: "wc_test", Channel: "web", VisitorToken: tokenHash("visitor-secret"), TopicID: 42}
++	store.messages = []bot.WebMessage{{ID: "wm_hidden", ConversationID: "wc_test", TopicMessageID: 50, Visible: false}}
++	h := New(Config{APIKey: "key", SupportGroupID: -1001}, store, telegram)
++	for _, target := range []string{"missing", "wm_hidden"} {
++		r := httptest.NewRequest(http.MethodPost, "/api/v1/conversations/wc_test/messages", strings.NewReader(`{"text":"reply","reply_to_message_id":"`+target+`"}`))
++		r.Header.Set("Authorization", "Bearer visitor-secret")
++		w := httptest.NewRecorder()
++		h.ServeHTTP(w, r)
++		if w.Code != http.StatusUnprocessableEntity || len(telegram.replies) != 0 {
++			t.Fatalf("target=%s status=%d body=%s", target, w.Code, w.Body.String())
++		}
++	}
++}
++
++func TestMessageValidationCORSAndSecurityHeaders(t *testing.T) {
++	store, telegram := newMemoryStore(), &fakeTelegram{topicID: 42}
++	h := New(Config{APIKey: "key", SupportGroupID: -1001, AllowedOrigins: []string{"https://site.test"}, RateLimitPerMinute: 60}, store, telegram)
++
++	preflight := httptest.NewRequest(http.MethodOptions, "/api/v1/conversations", nil)
++	preflight.Header.Set("Origin", "https://site.test")
++	response := httptest.NewRecorder()
++	h.ServeHTTP(response, preflight)
++	if response.Code != http.StatusNoContent || response.Header().Get("Access-Control-Allow-Origin") != "https://site.test" || response.Header().Get("X-Content-Type-Options") != "nosniff" {
++		t.Fatalf("status=%d headers=%v", response.Code, response.Header())
++	}
++
++	request := httptest.NewRequest(http.MethodPost, "/api/v1/conversations", strings.NewReader(`{"visitor_name":""}`))
++	request.Header.Set("Authorization", "Bearer key")
++	response = httptest.NewRecorder()
++	h.ServeHTTP(response, request)
++	if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "validation_error") {
++		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
++	}
++}
++
++func TestHealthVisitorAuthorizationAndQueryValidation(t *testing.T) {
++	store, telegram := newMemoryStore(), &fakeTelegram{topicID: 42}
++	store.conversations["wc_test"] = bot.Conversation{PublicID: "wc_test", Channel: "web", VisitorToken: tokenHash("visitor-secret")}
++	h := New(Config{APIKey: "integration-secret", SupportGroupID: -1001}, store, telegram)
++
++	health := httptest.NewRecorder()
++	h.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/healthz", nil))
++	if health.Code != http.StatusOK {
++		t.Fatalf("health=%d", health.Code)
++	}
++
++	unauthorized := httptest.NewRecorder()
++	h.ServeHTTP(unauthorized, httptest.NewRequest(http.MethodGet, "/api/v1/conversations/wc_test/messages", nil))
++	if unauthorized.Code != http.StatusUnauthorized {
++		t.Fatalf("unauthorized=%d", unauthorized.Code)
++	}
++
++	for _, path := range []string{
++		"/api/v1/conversations/wc_test/messages?after=-1",
++		"/api/v1/conversations/wc_test/messages?limit=101",
++	} {
++		request := httptest.NewRequest(http.MethodGet, path, nil)
++		request.Header.Set("Authorization", "Bearer visitor-secret")
++		response := httptest.NewRecorder()
++		h.ServeHTTP(response, request)
++		if response.Code != http.StatusBadRequest {
++			t.Fatalf("path=%s status=%d body=%s", path, response.Code, response.Body.String())
++		}
++	}
++
++	empty := httptest.NewRequest(http.MethodPost, "/api/v1/conversations/wc_test/messages", strings.NewReader(`{"text":" "}`))
++	empty.Header.Set("Authorization", "Bearer visitor-secret")
++	emptyResponse := httptest.NewRecorder()
++	h.ServeHTTP(emptyResponse, empty)
++	if emptyResponse.Code != http.StatusUnprocessableEntity {
++		t.Fatalf("empty status=%d body=%s", emptyResponse.Code, emptyResponse.Body.String())
++	}
++}
++
++func TestConversationValidationAndRateLimit(t *testing.T) {
++	store, telegram := newMemoryStore(), &fakeTelegram{topicID: 42}
++	h := New(Config{APIKey: "integration-secret", SupportGroupID: -1001, RateLimitPerMinute: 1}, store, telegram)
++
++	invalid := httptest.NewRequest(http.MethodPost, "/api/v1/conversations", strings.NewReader(`{"visitor_name":"Ada","page_url":"file:///tmp/x"}`))
++	invalid.Header.Set("Authorization", "Bearer integration-secret")
++	invalidResponse := httptest.NewRecorder()
++	h.ServeHTTP(invalidResponse, invalid)
++	if invalidResponse.Code != http.StatusUnprocessableEntity {
++		t.Fatalf("invalid status=%d body=%s", invalidResponse.Code, invalidResponse.Body.String())
++	}
++
++	limited := httptest.NewRequest(http.MethodPost, "/api/v1/conversations", strings.NewReader(`{"visitor_name":"Ada"}`))
++	limited.Header.Set("Authorization", "Bearer integration-secret")
++	limitedResponse := httptest.NewRecorder()
++	h.ServeHTTP(limitedResponse, limited)
++	if limitedResponse.Code != http.StatusTooManyRequests || limitedResponse.Header().Get("Retry-After") != "60" {
++		t.Fatalf("limited status=%d headers=%v body=%s", limitedResponse.Code, limitedResponse.Header(), limitedResponse.Body.String())
++	}
++}
+diff --git a/openapi.json b/openapi.json
+new file mode 100644
+index 0000000..ba187cd
+--- /dev/null
++++ b/openapi.json
+@@ -0,0 +1,347 @@
++{
++  "openapi": "3.1.0",
++  "info": {
++    "title": "ForumDesk Web API",
++    "version": "1.0.0",
++    "description": "Web visitor conversations bridged to Telegram Forum Topics."
++  },
++  "servers": [
++    {
++      "url": "https://support.example.com"
++    }
++  ],
++  "paths": {
++    "/healthz": {
++      "get": {
++        "summary": "Health check",
++        "responses": {
++          "200": {
++            "description": "Healthy"
++          }
++        }
++      }
++    },
++    "/api/v1/conversations": {
++      "post": {
++        "summary": "Create a web conversation",
++        "security": [
++          {
++            "integrationBearer": []
++          }
++        ],
++        "requestBody": {
++          "required": true,
++          "content": {
++            "application/json": {
++              "schema": {
++                "$ref": "#/components/schemas/CreateConversation"
++              }
++            }
++          }
++        },
++        "responses": {
++          "201": {
++            "description": "Conversation created",
++            "content": {
++              "application/json": {
++                "schema": {
++                  "$ref": "#/components/schemas/CreateConversationResponse"
++                }
++              }
++            }
++          },
++          "401": {
++            "$ref": "#/components/responses/Unauthorized"
++          },
++          "422": {
++            "$ref": "#/components/responses/ValidationError"
++          }
++        }
++      }
++    },
++    "/api/v1/conversations/{conversation_id}/messages": {
++      "parameters": [
++        {
++          "name": "conversation_id",
++          "in": "path",
++          "required": true,
++          "schema": {
++            "type": "string"
++          }
++        }
++      ],
++      "post": {
++        "summary": "Send a visitor message",
++        "security": [
++          {
++            "visitorBearer": []
++          }
++        ],
++        "requestBody": {
++          "required": true,
++          "content": {
++            "application/json": {
++              "schema": {
++                "type": "object",
++                "required": [
++                  "text"
++                ],
++                "properties": {
++                  "text": {
++                    "type": "string",
++                    "minLength": 1,
++                    "maxLength": 4000
++                  },
++                  "reply_to_message_id": {
++                    "type": "string",
++                    "description": "Optional visible message ID to quote"
++                  }
++                },
++                "additionalProperties": false
++              }
++            }
++          }
++        },
++        "responses": {
++          "201": {
++            "description": "Message accepted",
++            "content": {
++              "application/json": {
++                "schema": {
++                  "type": "object",
++                  "properties": {
++                    "data": {
++                      "$ref": "#/components/schemas/Message"
++                    }
++                  }
++                }
++              }
++            }
++          },
++          "401": {
++            "$ref": "#/components/responses/Unauthorized"
++          },
++          "422": {
++            "$ref": "#/components/responses/ValidationError"
++          },
++          "429": {
++            "description": "Rate limited"
++          }
++        }
++      },
++      "get": {
++        "summary": "Poll visible conversation messages",
++        "security": [
++          {
++            "visitorBearer": []
++          }
++        ],
++        "parameters": [
++          {
++            "name": "after",
++            "in": "query",
++            "schema": {
++              "type": "integer",
++              "minimum": 0,
++              "default": 0
++            }
++          },
++          {
++            "name": "limit",
++            "in": "query",
++            "schema": {
++              "type": "integer",
++              "minimum": 1,
++              "maximum": 100,
++              "default": 50
++            }
++          }
++        ],
++        "responses": {
++          "200": {
++            "description": "Message page",
++            "content": {
++              "application/json": {
++                "schema": {
++                  "type": "object",
++                  "properties": {
++                    "data": {
++                      "type": "array",
++                      "items": {
++                        "$ref": "#/components/schemas/Message"
++                      }
++                    },
++                    "meta": {
++                      "type": "object",
++                      "properties": {
++                        "next_cursor": {
++                          "type": "integer"
++                        }
++                      }
++                    }
++                  }
++                }
++              }
++            }
++          },
++          "401": {
++            "$ref": "#/components/responses/Unauthorized"
++          }
++        }
++      }
++    }
++  },
++  "components": {
++    "securitySchemes": {
++      "integrationBearer": {
++        "type": "http",
++        "scheme": "bearer",
++        "description": "WEB_API_KEY; server-side only"
++      },
++      "visitorBearer": {
++        "type": "http",
++        "scheme": "bearer",
++        "description": "Conversation-scoped visitor_token"
++      }
++    },
++    "schemas": {
++      "CreateConversation": {
++        "type": "object",
++        "required": [
++          "visitor_name"
++        ],
++        "additionalProperties": false,
++        "properties": {
++          "visitor_name": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 128
++          },
++          "email": {
++            "type": "string",
++            "maxLength": 254
++          },
++          "external_id": {
++            "type": "string",
++            "maxLength": 128
++          },
++          "page_url": {
++            "type": "string",
++            "format": "uri"
++          }
++        }
++      },
++      "CreateConversationResponse": {
++        "type": "object",
++        "properties": {
++          "data": {
++            "type": "object",
++            "properties": {
++              "id": {
++                "type": "string"
++              },
++              "visitor_token": {
++                "type": "string",
++                "description": "Returned once"
++              },
++              "status": {
++                "type": "string",
++                "const": "open"
++              },
++              "created_at": {
++                "type": "string",
++                "format": "date-time"
++              }
++            }
++          }
++        }
++      },
++      "Message": {
++        "type": "object",
++        "properties": {
++          "id": {
++            "type": "string"
++          },
++          "conversation_id": {
++            "type": "string"
++          },
++          "sequence": {
++            "type": "integer"
++          },
++          "direction": {
++            "type": "string",
++            "enum": [
++              "customer",
++              "staff",
++              "system"
++            ]
++          },
++          "event": {
++            "type": "string",
++            "enum": [
++              "message_hidden"
++            ]
++          },
++          "target_message_id": {
++            "type": "string"
++          },
++          "text": {
++            "type": "string"
++          },
++          "staff_name": {
++            "type": "string"
++          },
++          "visible": {
++            "type": "boolean"
++          },
++          "created_at": {
++            "type": "string",
++            "format": "date-time"
++          },
++          "reply_to_message_id": {
++            "type": "string",
++            "description": "Quoted message ID"
++          }
++        }
++      },
++      "Error": {
++        "type": "object",
++        "properties": {
++          "error": {
++            "type": "object",
++            "properties": {
++              "code": {
++                "type": "string"
++              },
++              "message": {
++                "type": "string"
++              }
++            }
++          }
++        }
++      }
++    },
++    "responses": {
++      "Unauthorized": {
++        "description": "Invalid credentials",
++        "content": {
++          "application/json": {
++            "schema": {
++              "$ref": "#/components/schemas/Error"
++            }
++          }
++        }
++      },
++      "ValidationError": {
++        "description": "Invalid input",
++        "content": {
++          "application/json": {
++            "schema": {
++              "$ref": "#/components/schemas/Error"
++            }
++          }
++        }
++      }
++    }
++  }
++}
 diff --git a/scripts/rollback.sh b/scripts/rollback.sh
 new file mode 100755
-index 0000000..12be7f2
+index 0000000..bff739b
 --- /dev/null
 +++ b/scripts/rollback.sh
 @@ -0,0 +1,8 @@
@@ -2020,5 +5278,5 @@ index 0000000..12be7f2
 +ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 +cd "$ROOT"
 +
-+rm -rf cmd internal data dist artifacts README.html Dockerfile compose.yaml Makefile go.mod .env.example .gitignore
++rm -rf .github cmd internal dist artifacts examples scripts API.html Dockerfile LICENSE Makefile README.html README.md README_EN.md compose.yaml go.mod go.sum openapi.json .env.example .gitignore .dockerignore
 +printf 'ForumDesk generated files removed. Git metadata was preserved.\n'

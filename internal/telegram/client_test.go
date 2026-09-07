@@ -140,8 +140,24 @@ func TestAdminCommandMenu(t *testing.T) {
 	}
 	scope := (*payload)["scope"].(map[string]any)
 	commands := (*payload)["commands"].([]any)
-	if scope["type"] != "chat_administrators" || scope["chat_id"] != float64(-1001) || len(commands) != 4 {
+	if scope["type"] != "chat_administrators" || scope["chat_id"] != float64(-1001) || len(commands) != 10 {
 		t.Fatalf("payload=%v", *payload)
+	}
+	if commands[3].(map[string]any)["command"] != "clear_user" {
+		t.Fatalf("commands=%v", commands)
+	}
+}
+
+func TestIsChatAdministrator(t *testing.T) {
+	c, payload, path := testClient(t, map[string]any{"status": "administrator"})
+	admin, err := c.IsChatAdministrator(context.Background(), -1001, 7001)
+	if err != nil || !admin || *path != "/getChatMember" || (*payload)["user_id"] != float64(7001) {
+		t.Fatalf("admin=%v path=%s payload=%v err=%v", admin, *path, *payload, err)
+	}
+	c, _, _ = testClient(t, map[string]any{"status": "member"})
+	admin, err = c.IsChatAdministrator(context.Background(), -1001, 7001)
+	if err != nil || admin {
+		t.Fatalf("admin=%v err=%v", admin, err)
 	}
 }
 

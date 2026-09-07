@@ -403,3 +403,259 @@ EXIT_STATUS=0
 $ rollback temporary copy
 ForumDesk generated files removed. Git metadata was preserved.
 EXIT_STATUS=0
+=== ADMIN CLEAR + PRIVATE COMMAND MENU VERIFICATION ===
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	(cached)
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	(cached)
+ok  	forumdesk/internal/telegram	(cached)
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-clear-cover.out && go tool cover -func=/tmp/forumdesk-clear-cover.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	(cached)	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	(cached)	coverage: 82.2% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	(cached)	coverage: 75.2% of statements
+ok  	forumdesk/internal/telegram	(cached)	coverage: 93.5% of statements
+total:						(statements)			80.1%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+dist/forumdesk: Mach-O 64-bit executable arm64
+41d9c0e3b8095af750d230d35efbdf3ff40b85f0988c905230f2af371cc136c0  dist/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:a4a3849c6aa5579c078643535e6555461c5683743d9b6ef3359f9353ed100011
+EXIT_STATUS=0
+
+$ python3 HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+=== PATCH + ROLLBACK VERIFICATION ===
+$ git init && git apply artifacts/forumdesk.patch && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.010s
+ok  	forumdesk/internal/bot	0.012s
+ok  	forumdesk/internal/config	0.009s
+ok  	forumdesk/internal/store	0.017s
+ok  	forumdesk/internal/telegram	0.017s
+EXIT_STATUS=0
+
+$ scripts/rollback.sh (temporary patched workspace)
+ForumDesk generated files removed. Git metadata was preserved.
+rollback content check: empty except .git
+EXIT_STATUS=0
+
+=== PRESERVE PROFILE CARD + USER-ONLY CLEAR VERIFICATION ===
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	(cached)
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	(cached)
+ok  	forumdesk/internal/telegram	(cached)
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-clear-v2-cover.out && go tool cover -func=/tmp/forumdesk-clear-v2-cover.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	(cached)	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	(cached)	coverage: 81.1% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	(cached)	coverage: 77.9% of statements
+ok  	forumdesk/internal/telegram	(cached)	coverage: 93.5% of statements
+total:						(statements)			80.3%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+dist/forumdesk: Mach-O 64-bit executable arm64
+781baf2b99ecfd20fa2b4da937242c998e0f132f5ab80197cbcc2ff92a0b7625  dist/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:1c57f66e2bed97b5f6c49545bd24ae7e57049109471e8372e3908c94a7784882
+EXIT_STATUS=0
+
+$ python3 HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+=== CLEAR V2 PATCH + ROLLBACK VERIFICATION ===
+$ git init && git apply artifacts/forumdesk.patch && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.010s
+ok  	forumdesk/internal/bot	0.010s
+ok  	forumdesk/internal/config	0.007s
+ok  	forumdesk/internal/store	0.016s
+ok  	forumdesk/internal/telegram	0.017s
+EXIT_STATUS=0
+
+$ scripts/rollback.sh (temporary patched workspace)
+ForumDesk generated files removed. Git metadata was preserved.
+rollback content check: empty except .git
+EXIT_STATUS=0
+
+=== TRACK ADMIN COMMANDS FOR CLEAR VERIFICATION ===
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	1.023s
+ok  	forumdesk/internal/config	(cached)
+ok  	forumdesk/internal/store	(cached)
+ok  	forumdesk/internal/telegram	(cached)
+EXIT_STATUS=0
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-clear-v3-cover.out && go tool cover -func=/tmp/forumdesk-clear-v3-cover.out | tail -1
+	forumdesk/cmd/forumdesk		coverage: 0.0% of statements
+ok  	forumdesk/internal/app	(cached)	coverage: 93.3% of statements
+ok  	forumdesk/internal/bot	0.011s	coverage: 80.8% of statements
+ok  	forumdesk/internal/config	(cached)	coverage: 100.0% of statements
+ok  	forumdesk/internal/store	(cached)	coverage: 77.9% of statements
+ok  	forumdesk/internal/telegram	(cached)	coverage: 93.5% of statements
+total:						(statements)			80.1%
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/forumdesk ./cmd/forumdesk
+dist/forumdesk: Mach-O 64-bit executable arm64
+542b33e7aa845bdde7085085d4a4a6065e182b837b8d177ab4fd671bd1c6bd4a  dist/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:df2bd1ff4f9ac428e8a470e5cd431145cbd21cd8204e3abfb07316a724671971
+EXIT_STATUS=0
+
+$ python3 HTMLParser validation
+README.html: parse OK
+EXIT_STATUS=0
+
+=== CLEAR V3 PATCH + ROLLBACK VERIFICATION ===
+$ git init && git apply artifacts/forumdesk.patch && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.009s
+ok  	forumdesk/internal/bot	0.009s
+ok  	forumdesk/internal/config	0.007s
+ok  	forumdesk/internal/store	0.016s
+ok  	forumdesk/internal/telegram	0.017s
+EXIT_STATUS=0
+
+$ scripts/rollback.sh (temporary patched workspace)
+ForumDesk generated files removed. Git metadata was preserved.
+rollback content check: empty except .git
+EXIT_STATUS=0
+
+=== WEB API + STAFF VISIBILITY + QUOTED REPLIES VERIFICATION (2026-09-07) ===
+BASELINE INPUT: repository HEAD dd86391
+$ git cat-file -e HEAD:internal/webapi/server.go
+fatal: path 'internal/webapi/server.go' exists on disk, but not in 'HEAD'
+EXIT_STATUS=128
+CONFIRMED_BASELINE_BEHAVIOR=No Web API server existed in repository HEAD.
+
+MODIFIED INPUT: working tree with Web API v1 and Telegram per-topic visibility controls
+$ go test -v ./internal/webapi ./internal/bot -run 'TestConversationAndMessageLifecycle|TestReplyRejectsUnknownOrHiddenTarget|TestUnapprovedStaffMessageStaysInternal|TestAdminAllowsStaffForCurrentTopic|TestAdminShowsThenHidesOneStaffMessage|TestWebStaffReplyKeepsQuotedMessageMapping|TestAdminHidesPublishedWebMessageAndAppendsTombstone'
+=== RUN   TestConversationAndMessageLifecycle
+--- PASS: TestConversationAndMessageLifecycle (0.00s)
+=== RUN   TestReplyRejectsUnknownOrHiddenTarget
+--- PASS: TestReplyRejectsUnknownOrHiddenTarget (0.00s)
+PASS
+ok  	forumdesk/internal/webapi	0.010s
+=== RUN   TestUnapprovedStaffMessageStaysInternal
+--- PASS: TestUnapprovedStaffMessageStaysInternal (0.00s)
+=== RUN   TestAdminAllowsStaffForCurrentTopic
+--- PASS: TestAdminAllowsStaffForCurrentTopic (0.00s)
+=== RUN   TestAdminShowsThenHidesOneStaffMessage
+--- PASS: TestAdminShowsThenHidesOneStaffMessage (0.00s)
+=== RUN   TestWebStaffReplyKeepsQuotedMessageMapping
+--- PASS: TestWebStaffReplyKeepsQuotedMessageMapping (0.00s)
+=== RUN   TestAdminHidesPublishedWebMessageAndAppendsTombstone
+--- PASS: TestAdminHidesPublishedWebMessageAndAppendsTombstone (0.00s)
+PASS
+ok  	forumdesk/internal/bot	0.010s
+EXIT_STATUS=0
+CONFIRMED_MODIFIED_BEHAVIOR=Web conversations bridge to Telegram Topics; visitor and staff quotes preserve message IDs; ordinary staff stays internal until per-topic or per-message approval; hide emits a browser tombstone.
+
+$ go vet ./...
+EXIT_STATUS=0
+
+$ go test -race ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	(cached)
+ok  	forumdesk/internal/bot	1.029s
+ok  	forumdesk/internal/config	1.027s
+ok  	forumdesk/internal/store	1.030s
+ok  	forumdesk/internal/telegram	1.030s
+ok  	forumdesk/internal/webapi	1.020s
+EXIT_STATUS=0
+
+$ go test ./... -coverprofile=/tmp/forumdesk-web-cover.out && go tool cover -func=/tmp/forumdesk-web-cover.out | tail -1
+total:						(statements)			81.1%
+EXIT_STATUS=0
+
+$ python3 HTMLParser + json.load validation
+README.html: parse OK
+API.html: parse OK
+examples/web-client.html: parse OK
+openapi.json: JSON OK
+EXIT_STATUS=0
+
+$ CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o dist/forumdesk ./cmd/forumdesk
+$ file dist/forumdesk
+dist/forumdesk: Mach-O 64-bit executable arm64
+$ shasum -a 256 dist/forumdesk
+e831099c21ece09fc4db6595b99d51b6c1260db1e7419bf563e3273756885d05  dist/forumdesk
+EXIT_STATUS=0
+
+$ docker build -q -t forumdesk:verify .
+sha256:f40775d295f391f1d2fb5a5dc70dc9d90003e622fb0e17eb91dfe72b97a38011
+EXIT_STATUS=0
+
+=== WEB API PATCH + ROLLBACK VERIFICATION ===
+$ git init && git apply forumdesk.patch && go test ./... (temporary directory)
+PATCH_APPLY_EXIT=0
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.012s
+ok  	forumdesk/internal/bot	0.011s
+ok  	forumdesk/internal/config	0.011s
+ok  	forumdesk/internal/store	0.021s
+ok  	forumdesk/internal/telegram	0.018s
+ok  	forumdesk/internal/webapi	0.011s
+PATCH_TEST_EXIT=0
+
+$ ./scripts/rollback.sh (temporary patched workspace)
+ForumDesk generated files removed. Git metadata was preserved.
+ROLLBACK_CONTENT_CHECK=empty_except_.git_and_external_patch
+ROLLBACK_EXIT=0
+
+$ env -i PATH="$PATH" ./dist/forumdesk
+2026/09/07 11:59:41 BOT_TOKEN is required
+EXIT_STATUS=1
+EXPECTED_BEHAVIOR=The verified binary starts and rejects an incomplete runtime configuration before network activity.
+
+=== FINAL DATA-PRESERVING ROLLBACK CHECK ===
+RUNTIME_DATA_POLICY=data/ and .env are preserved by rollback.
+$ git apply forumdesk.patch && go test ./...
+?   	forumdesk/cmd/forumdesk	[no test files]
+ok  	forumdesk/internal/app	0.011s
+ok  	forumdesk/internal/bot	0.011s
+ok  	forumdesk/internal/config	0.006s
+ok  	forumdesk/internal/store	0.017s
+ok  	forumdesk/internal/telegram	0.016s
+ok  	forumdesk/internal/webapi	0.010s
+EXIT_STATUS=0
+$ ./scripts/rollback.sh
+ForumDesk generated files removed. Git metadata was preserved.
+ROLLBACK_CONTENT_CHECK=empty_except_.git_and_external_patch
+EXIT_STATUS=0
+PATCH_SHA256=402b8f8848db6b8ef4afe6aa5703f90a8489e5207bf17793cf5f87bf27808155

@@ -91,6 +91,16 @@ func (c *Client) DeleteForumTopic(ctx context.Context, chatID int64, topicID int
 	return c.call(ctx, "deleteForumTopic", map[string]any{"chat_id": chatID, "message_thread_id": topicID}, nil)
 }
 
+func (c *Client) IsChatAdministrator(ctx context.Context, chatID, userID int64) (bool, error) {
+	var result struct {
+		Status string `json:"status"`
+	}
+	if err := c.call(ctx, "getChatMember", map[string]any{"chat_id": chatID, "user_id": userID}, &result); err != nil {
+		return false, err
+	}
+	return result.Status == "administrator" || result.Status == "creator", nil
+}
+
 func (c *Client) CreateForumTopic(ctx context.Context, chatID int64, name string) (int, error) {
 	var result struct {
 		MessageThreadID int `json:"message_thread_id"`
@@ -131,7 +141,13 @@ func (c *Client) SetAdminCommands(ctx context.Context, chatID int64) error {
 	commands := []map[string]string{
 		{"command": "protect", "description": "内容保护状态或开关：/protect on|off"},
 		{"command": "delete", "description": "回复一条消息后双端删除"},
-		{"command": "clear", "description": "双向删除整段对话（需要确认）"},
+		{"command": "clear", "description": "清空双方消息，保留 Topic 和资料卡"},
+		{"command": "clear_user", "description": "仅清空用户端，保留管理端历史"},
+		{"command": "allow_staff", "description": "回复成员消息，允许其发言对客可见"},
+		{"command": "deny_staff", "description": "回复成员消息，恢复仅内部可见"},
+		{"command": "show", "description": "回复消息，单独设为对客可见"},
+		{"command": "hide", "description": "回复消息，单独设为仅内部可见"},
+		{"command": "staff", "description": "查看当前 Topic 已授权成员"},
 		{"command": "help", "description": "显示管理员命令说明"},
 	}
 	return c.call(ctx, "setMyCommands", map[string]any{

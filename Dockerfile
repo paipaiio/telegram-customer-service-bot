@@ -13,4 +13,5 @@ RUN mkdir -p /app/data && chown -R forumdesk:forumdesk /app
 USER forumdesk
 ENV DATA_FILE=/app/data/forumdesk.json
 VOLUME ["/app/data"]
+EXPOSE 8080
 ENTRYPOINT ["forumdesk"]

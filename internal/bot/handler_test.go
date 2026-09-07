@@ -13,12 +13,14 @@ type fakeStore struct {
 	byUser              map[int64]Conversation
 	byTopic             map[int64]Conversation
 	saved               []MessageLink
+	webMessages         []WebMessage
+	staffVisibility     map[int64]map[int64]bool
 	createErr           error
 	deletedConversation int64
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{byUser: map[int64]Conversation{}, byTopic: map[int64]Conversation{}}
+	return &fakeStore{byUser: map[int64]Conversation{}, byTopic: map[int64]Conversation{}, staffVisibility: map[int64]map[int64]bool{}}
 }
 
 func (s *fakeStore) ConversationByUser(_ context.Context, id int64) (Conversation, bool, error) {
@@ -56,9 +58,9 @@ func (s *fakeStore) MessageLinkByTopic(_ context.Context, messageID int) (Messag
 	}
 	return MessageLink{}, false, nil
 }
-func (s *fakeStore) DeleteMessageLink(_ context.Context, userID int64, userMessageID int) error {
+func (s *fakeStore) DeleteMessageLink(_ context.Context, target MessageLink) error {
 	for i, link := range s.saved {
-		if link.UserID == userID && link.UserMessageID == userMessageID {
+		if link.UserID == target.UserID && ((target.UserMessageID != 0 && link.UserMessageID == target.UserMessageID) || (target.TopicMessageID != 0 && link.TopicMessageID == target.TopicMessageID)) {
 			s.saved = append(s.saved[:i], s.saved[i+1:]...)
 			break
 		}
@@ -97,6 +99,56 @@ func (s *fakeStore) DeleteConversation(_ context.Context, userID int64) error {
 	s.saved = kept
 	return nil
 }
+func (s *fakeStore) ReplaceMessageLinksByUser(_ context.Context, userID int64, links []MessageLink) error {
+	kept := s.saved[:0]
+	for _, link := range s.saved {
+		if link.UserID != userID {
+			kept = append(kept, link)
+		}
+	}
+	s.saved = append(kept, links...)
+	return nil
+}
+func (s *fakeStore) SetStaffVisibility(_ context.Context, userID, staffID int64, visible bool) error {
+	if s.staffVisibility[userID] == nil {
+		s.staffVisibility[userID] = map[int64]bool{}
+	}
+	s.staffVisibility[userID][staffID] = visible
+	return nil
+}
+func (s *fakeStore) StaffVisible(_ context.Context, userID, staffID int64) (bool, error) {
+	return s.staffVisibility[userID][staffID], nil
+}
+func (s *fakeStore) VisibleStaff(_ context.Context, userID int64) ([]int64, error) {
+	var result []int64
+	for staffID, visible := range s.staffVisibility[userID] {
+		if visible {
+			result = append(result, staffID)
+		}
+	}
+	return result, nil
+}
+func (s *fakeStore) AddWebMessage(_ context.Context, message WebMessage) (WebMessage, error) {
+	message.Sequence = int64(len(s.webMessages) + 1)
+	s.webMessages = append(s.webMessages, message)
+	return message, nil
+}
+func (s *fakeStore) WebMessageByID(_ context.Context, id string) (WebMessage, bool, error) {
+	for _, message := range s.webMessages {
+		if message.ID == id {
+			return message, true, nil
+		}
+	}
+	return WebMessage{}, false, nil
+}
+func (s *fakeStore) SetWebMessageVisible(_ context.Context, id string, visible bool) error {
+	for i := range s.webMessages {
+		if s.webMessages[i].ID == id {
+			s.webMessages[i].Visible = visible
+		}
+	}
+	return nil
+}
 
 type copyCall struct {
 	chatID, fromChatID int64
@@ -104,18 +156,20 @@ type copyCall struct {
 	options            telegram.CopyOptions
 }
 type fakeTelegram struct {
-	topicID       int
-	copyID        int
-	copyCalls     []copyCall
-	texts         []string
-	photos        []string
-	profileFile   string
-	edits         []editCall
-	deletes       []deleteCall
-	replies       []replyCall
-	deleteErr     map[deleteCall]error
-	deleteBatches [][]int
-	deletedTopics []int
+	topicID        int
+	copyID         int
+	copyCalls      []copyCall
+	texts          []string
+	photos         []string
+	profileFile    string
+	edits          []editCall
+	deletes        []deleteCall
+	replies        []replyCall
+	deleteErr      map[deleteCall]error
+	deleteBatches  []deleteBatchCall
+	deleteBatchErr error
+	deletedTopics  []int
+	nonAdmins      map[int64]bool
 }
 type editCall struct {
 	kind      string
@@ -126,6 +180,10 @@ type editCall struct {
 type deleteCall struct {
 	chatID    int64
 	messageID int
+}
+type deleteBatchCall struct {
+	chatID     int64
+	messageIDs []int
 }
 type replyCall struct {
 	chatID              int64
@@ -168,13 +226,16 @@ func (f *fakeTelegram) SendReplyMessage(_ context.Context, chatID int64, text st
 	f.replies = append(f.replies, replyCall{chatID, messageID, threadID, text})
 	return 79, nil
 }
-func (f *fakeTelegram) DeleteMessages(_ context.Context, _ int64, messageIDs []int) error {
-	f.deleteBatches = append(f.deleteBatches, append([]int(nil), messageIDs...))
-	return nil
+func (f *fakeTelegram) DeleteMessages(_ context.Context, chatID int64, messageIDs []int) error {
+	f.deleteBatches = append(f.deleteBatches, deleteBatchCall{chatID: chatID, messageIDs: append([]int(nil), messageIDs...)})
+	return f.deleteBatchErr
 }
 func (f *fakeTelegram) DeleteForumTopic(_ context.Context, _ int64, topicID int) error {
 	f.deletedTopics = append(f.deletedTopics, topicID)
 	return nil
+}
+func (f *fakeTelegram) IsChatAdministrator(_ context.Context, _ int64, userID int64) (bool, error) {
+	return !f.nonAdmins[userID], nil
 }
 
 func TestPrivateMessageCreatesTopicAndCopiesMessage(t *testing.T) {
@@ -348,6 +409,8 @@ func TestDeleteCommandDeletesBothMessagesAndCommand(t *testing.T) {
 
 func TestDeleteCommandWithoutReplyShowsUsageAndIsNotForwarded(t *testing.T) {
 	store, api := newFakeStore(), &fakeTelegram{}
+	c := Conversation{UserID: 1001, TopicID: 12}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
 	h := NewHandler(-10099, store, api)
 	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
 		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/delete",
@@ -355,8 +418,8 @@ func TestDeleteCommandWithoutReplyShowsUsageAndIsNotForwarded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(api.copyCalls) != 0 || len(api.texts) != 1 {
-		t.Fatalf("copies=%v texts=%v", api.copyCalls, api.texts)
+	if len(api.copyCalls) != 0 || len(api.texts) != 1 || len(store.saved) != 2 {
+		t.Fatalf("copies=%v texts=%v links=%v", api.copyCalls, api.texts, store.saved)
 	}
 }
 
@@ -448,8 +511,11 @@ func TestProtectCommandEnablesContentProtectionForTopic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !store.byUser[1001].ProtectContent || len(api.copyCalls) != 0 || len(api.texts) != 1 {
-		t.Fatalf("conversation=%#v copies=%v texts=%v", store.byUser[1001], api.copyCalls, api.texts)
+	if !store.byUser[1001].ProtectContent || len(api.copyCalls) != 0 || len(api.texts) != 1 || len(store.saved) != 2 {
+		t.Fatalf("conversation=%#v copies=%v texts=%v links=%v", store.byUser[1001], api.copyCalls, api.texts, store.saved)
+	}
+	if store.saved[0].TopicMessageID != 60 || store.saved[1].TopicMessageID != 77 {
+		t.Fatalf("links=%#v", store.saved)
 	}
 }
 
@@ -464,8 +530,8 @@ func TestHelpCommandShowsAdminCommandsWithoutForwarding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(api.copyCalls) != 0 || len(api.texts) != 1 || !strings.Contains(api.texts[0], "/protect") {
-		t.Fatalf("copies=%v texts=%v", api.copyCalls, api.texts)
+	if len(api.copyCalls) != 0 || len(api.texts) != 1 || !strings.Contains(api.texts[0], "/protect") || len(store.saved) != 2 {
+		t.Fatalf("copies=%v texts=%v links=%v", api.copyCalls, api.texts, store.saved)
 	}
 }
 
@@ -485,13 +551,17 @@ func TestClearConversationRequiresConfirmation(t *testing.T) {
 	}
 }
 
-func TestClearConversationDeletesUserMessagesInBatchesAndTopic(t *testing.T) {
+func TestClearConversationDeletesBothSidesButPreservesTopicAndProfileCard(t *testing.T) {
 	store, api := newFakeStore(), &fakeTelegram{}
 	c := Conversation{UserID: 1001, TopicID: 12}
 	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
 	for i := 1; i <= 101; i++ {
 		store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: i, TopicMessageID: 1000 + i})
 	}
+	store.saved = append(store.saved,
+		MessageLink{UserID: 1001, TopicMessageID: 2001},
+		MessageLink{UserID: 1001, TopicMessageID: 2002},
+	)
 	h := NewHandler(-10099, store, api)
 	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
 		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/clear confirm",
@@ -499,11 +569,41 @@ func TestClearConversationDeletesUserMessagesInBatchesAndTopic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(api.deleteBatches) != 2 || len(api.deleteBatches[0]) != 100 || len(api.deleteBatches[1]) != 1 {
+	if len(api.deleteBatches) != 4 || len(api.deleteBatches[0].messageIDs) != 100 || len(api.deleteBatches[1].messageIDs) != 1 || len(api.deleteBatches[2].messageIDs) != 100 || len(api.deleteBatches[3].messageIDs) != 4 {
 		t.Fatalf("batches=%v", api.deleteBatches)
 	}
-	if len(api.deletedTopics) != 1 || api.deletedTopics[0] != 12 || store.deletedConversation != 1001 || len(store.saved) != 0 {
+	if api.deleteBatches[0].chatID != 1001 || api.deleteBatches[2].chatID != -10099 {
+		t.Fatalf("batch chats=%v", api.deleteBatches)
+	}
+	for _, batch := range api.deleteBatches[2:] {
+		for _, messageID := range batch.messageIDs {
+			if messageID == 900 {
+				t.Fatal("untracked profile card was deleted")
+			}
+		}
+	}
+	if len(api.deletedTopics) != 0 || store.deletedConversation != 0 || len(store.saved) != 0 {
 		t.Fatalf("topics=%v deleted=%d links=%d", api.deletedTopics, store.deletedConversation, len(store.saved))
+	}
+	if _, found := store.byTopic[12]; !found {
+		t.Fatal("topic conversation mapping was removed")
+	}
+}
+
+func TestClearConversationKeepsTopicWhenUserBatchDeleteFails(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{deleteBatchErr: errors.New("batch failed")}
+	c := Conversation{UserID: 1001, TopicID: 12}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	store.saved = append(store.saved, MessageLink{UserID: 1001, UserMessageID: 1, TopicMessageID: 1001})
+	h := NewHandler(-10099, store, api)
+	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/clear confirm",
+	}})
+	if err == nil || !strings.Contains(err.Error(), "delete user conversation batch") {
+		t.Fatalf("err=%v", err)
+	}
+	if len(api.deletedTopics) != 0 || store.deletedConversation != 0 || len(api.texts) != 1 {
+		t.Fatalf("topics=%v deleted=%d notices=%v", api.deletedTopics, store.deletedConversation, api.texts)
 	}
 }
 
@@ -520,5 +620,223 @@ func TestPrivateClearIsRejectedAndPrivateHelpListsDelete(t *testing.T) {
 	}
 	if len(api.copyCalls) != 0 || len(api.texts) != 2 || !strings.Contains(api.texts[1], "/delete") || strings.Contains(api.texts[1], "/clear") {
 		t.Fatalf("copies=%v texts=%v", api.copyCalls, api.texts)
+	}
+}
+
+func TestUnapprovedStaffMessageStaysInternal(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{copyID: 91, nonAdmins: map[int64]bool{7: true}}
+	c := Conversation{UserID: 1001, TopicID: 12}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	h := NewHandler(-10099, store, api)
+	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7, FirstName: "Tech"}, Text: "internal diagnosis",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(api.copyCalls) != 0 || len(store.saved) != 1 || !store.saved[0].Hidden || store.saved[0].TopicMessageID != 50 {
+		t.Fatalf("copies=%v links=%#v", api.copyCalls, store.saved)
+	}
+}
+
+func TestAdminAllowsStaffForCurrentTopic(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{copyID: 91, nonAdmins: map[int64]bool{7: true}}
+	c := Conversation{UserID: 1001, TopicID: 12}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	h := NewHandler(-10099, store, api)
+	allow := telegram.Update{Message: &telegram.Message{
+		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/allow_staff",
+		ReplyToMessage: &telegram.Message{MessageID: 50, From: &telegram.User{ID: 7, FirstName: "Tech"}},
+	}}
+	if err := h.Handle(context.Background(), allow); err != nil {
+		t.Fatal(err)
+	}
+	if !store.staffVisibility[1001][7] || len(api.copyCalls) != 0 {
+		t.Fatalf("visibility=%v copies=%v", store.staffVisibility, api.copyCalls)
+	}
+	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 61, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7, FirstName: "Tech"}, Text: "customer-visible answer",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(api.copyCalls) != 1 || api.copyCalls[0].messageID != 61 {
+		t.Fatalf("copies=%#v", api.copyCalls)
+	}
+}
+
+func TestAdminShowsThenHidesOneStaffMessage(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{copyID: 91, nonAdmins: map[int64]bool{7: true}}
+	c := Conversation{UserID: 1001, TopicID: 12}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	store.saved = []MessageLink{{UserID: 1001, TopicMessageID: 50, Hidden: true}}
+	h := NewHandler(-10099, store, api)
+	original := &telegram.Message{MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7, FirstName: "Tech"}, Text: "approved answer"}
+	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/show", ReplyToMessage: original,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	link, found, _ := store.MessageLinkByTopic(context.Background(), 50)
+	if !found || link.Hidden || link.UserMessageID != 91 {
+		t.Fatalf("shown link=%#v found=%v", link, found)
+	}
+	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 62, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/hide", ReplyToMessage: original,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	link, found, _ = store.MessageLinkByTopic(context.Background(), 50)
+	if !found || !link.Hidden || link.UserMessageID != 0 {
+		t.Fatalf("hidden link=%#v found=%v", link, found)
+	}
+	if len(api.deletes) == 0 || api.deletes[0] != (deleteCall{1001, 91}) {
+		t.Fatalf("deletes=%#v", api.deletes)
+	}
+}
+
+func TestWebConversationPublishesAdminReplyToWebQueue(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{}
+	c := Conversation{UserID: -1001, TopicID: 12, PublicID: "wc_1", Channel: "web", DisplayName: "Ada"}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	h := NewHandler(-10099, store, api)
+	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9, FirstName: "Alice"}, Text: "hello from support",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(api.copyCalls) != 0 || len(store.webMessages) != 1 || store.webMessages[0].Text != "hello from support" || !store.webMessages[0].Visible {
+		t.Fatalf("copies=%v web=%#v", api.copyCalls, store.webMessages)
+	}
+	if len(store.saved) != 1 || store.saved[0].WebMessageID == "" {
+		t.Fatalf("links=%#v", store.saved)
+	}
+}
+
+func TestWebStaffReplyKeepsQuotedMessageMapping(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{}
+	c := Conversation{UserID: -1001, TopicID: 12, PublicID: "wc_1", Channel: "web", DisplayName: "Ada"}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	store.saved = []MessageLink{{UserID: c.UserID, TopicMessageID: 40, WebMessageID: "wm_customer"}}
+	h := NewHandler(-10099, store, api)
+	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"},
+		From: &telegram.User{ID: 9, FirstName: "Alice"}, Text: "quoted answer",
+		ReplyToMessage: &telegram.Message{MessageID: 40},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.webMessages) != 1 || store.webMessages[0].ReplyToMessageID != "wm_customer" {
+		t.Fatalf("web=%#v", store.webMessages)
+	}
+}
+
+func TestAdminDeniesAndListsStaffWhileMemberCannotControl(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{nonAdmins: map[int64]bool{7: true}}
+	c := Conversation{UserID: 1001, TopicID: 12}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	store.staffVisibility[1001] = map[int64]bool{7: true}
+	h := NewHandler(-10099, store, api)
+
+	unauthorized := telegram.Update{Message: &telegram.Message{
+		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/deny_staff",
+		ReplyToMessage: &telegram.Message{MessageID: 50, From: &telegram.User{ID: 8, FirstName: "Sales"}},
+	}}
+	if err := h.Handle(context.Background(), unauthorized); err != nil {
+		t.Fatal(err)
+	}
+	if store.staffVisibility[1001][8] {
+		t.Fatal("non-admin changed staff visibility")
+	}
+
+	deny := unauthorized
+	deny.Message = &telegram.Message{
+		MessageID: 61, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/deny_staff",
+		ReplyToMessage: &telegram.Message{MessageID: 50, From: &telegram.User{ID: 7, FirstName: "Tech"}},
+	}
+	if err := h.Handle(context.Background(), deny); err != nil {
+		t.Fatal(err)
+	}
+	if store.staffVisibility[1001][7] {
+		t.Fatal("staff remained visible")
+	}
+	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 62, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/staff",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(api.texts) != 3 || !strings.Contains(api.texts[2], "没有已授权") {
+		t.Fatalf("texts=%v", api.texts)
+	}
+}
+
+func TestAdminHidesPublishedWebMessageAndAppendsTombstone(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{}
+	c := Conversation{UserID: -1001, TopicID: 12, PublicID: "wc_1", Channel: "web", DisplayName: "Ada"}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	store.webMessages = []WebMessage{{ID: "wm_1", ConversationID: "wc_1", Direction: "staff", Text: "visible", Visible: true}}
+	store.saved = []MessageLink{{UserID: -1001, TopicMessageID: 50, WebMessageID: "wm_1"}}
+	h := NewHandler(-10099, store, api)
+	original := &telegram.Message{MessageID: 50, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "visible"}
+	if err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 60, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 9}, Text: "/hide", ReplyToMessage: original,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if store.webMessages[0].Visible || len(store.webMessages) != 2 || store.webMessages[1].Event != "message_hidden" || store.webMessages[1].TargetMessageID != "wm_1" {
+		t.Fatalf("web messages=%#v", store.webMessages)
+	}
+}
+
+func TestClearUserDeletesOnlyPrivateCopiesAndKeepsTopicHistory(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{}
+	c := Conversation{UserID: 1001, TopicID: 12}
+	store.byUser[c.UserID], store.byTopic[int64(c.TopicID)] = c, c
+	store.saved = []MessageLink{
+		{UserID: 1001, UserMessageID: 80, TopicMessageID: 40},
+		{UserID: 1001, UserMessageID: 81, TopicMessageID: 41},
+	}
+	h := NewHandler(-10099, store, api)
+	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/clear_user confirm",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(api.deleteBatches) != 1 || api.deleteBatches[0].chatID != 1001 || len(api.deleteBatches[0].messageIDs) != 2 {
+		t.Fatalf("batches=%v", api.deleteBatches)
+	}
+	if len(api.deletedTopics) != 0 || len(store.saved) != 4 {
+		t.Fatalf("topics=%v links=%v", api.deletedTopics, store.saved)
+	}
+	for _, link := range store.saved[:2] {
+		if link.UserMessageID != 0 || link.TopicMessageID == 0 {
+			t.Fatalf("link=%#v", link)
+		}
+	}
+	if store.saved[2].TopicMessageID != 70 || store.saved[3].TopicMessageID != 77 {
+		t.Fatalf("command links=%#v", store.saved[2:])
+	}
+}
+
+func TestDeleteAfterUserOnlyClearRemovesTheRepliedTopicMapping(t *testing.T) {
+	store, api := newFakeStore(), &fakeTelegram{}
+	store.saved = []MessageLink{
+		{UserID: 1001, TopicMessageID: 40},
+		{UserID: 1001, TopicMessageID: 41},
+	}
+	h := NewHandler(-10099, store, api)
+	err := h.Handle(context.Background(), telegram.Update{Message: &telegram.Message{
+		MessageID: 70, MessageThreadID: 12, Chat: telegram.Chat{ID: -10099, Type: "supergroup"}, From: &telegram.User{ID: 7}, Text: "/delete",
+		ReplyToMessage: &telegram.Message{MessageID: 41},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(store.saved) != 1 || store.saved[0].TopicMessageID != 40 {
+		t.Fatalf("links=%#v", store.saved)
+	}
+	want := []deleteCall{{-10099, 41}, {-10099, 70}}
+	if len(api.deletes) != len(want) || api.deletes[0] != want[0] || api.deletes[1] != want[1] {
+		t.Fatalf("deletes=%#v want=%#v", api.deletes, want)
 	}
 }

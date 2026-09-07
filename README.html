@@ -25,7 +25,7 @@
 <div class="shell">
   <nav>
     <b>ForumDesk</b>
-    <a href="#overview">项目概览 Overview</a><a href="#flow">工作流程 Workflow</a><a href="#setup">首次配置 Setup</a><a href="#message-actions">编辑与删除 Edit &amp; Delete</a><a href="#clear">批量清理 Clear</a><a href="#privacy">引用与内容保护 Privacy</a><a href="#commands">管理员命令 Commands</a><a href="#run">启动方式 Run</a><a href="#structure">项目结构 Structure</a><a href="#status">当前边界 Roadmap</a>
+    <a href="#overview">项目概览 Overview</a><a href="#flow">工作流程 Workflow</a><a href="#web-api">Web API</a><a href="#setup">首次配置 Setup</a><a href="#message-actions">编辑与删除 Edit &amp; Delete</a><a href="#clear">批量清理 Clear</a><a href="#privacy">引用与内容保护 Privacy</a><a href="#commands">管理员命令 Commands</a><a href="#run">启动方式 Run</a><a href="#structure">项目结构 Structure</a><a href="#status">当前边界 Roadmap</a>
   </nav>
   <main>
     <header class="hero" id="overview">
@@ -39,6 +39,8 @@
       <div class="grid"><div class="card"><b class="ok">用户 → 客服 / User → Agent</b><p>首次消息创建 Topic 和用户资料卡；之后所有消息复用同一 Topic。<br><span class="en">The first message creates the topic and a profile card; all later messages reuse it.</span></p></div><div class="card"><b class="ok">客服 → 用户 / Agent → User</b><p>管理员直接在 Topic 发消息，Bot 根据 Topic 映射复制给对应用户。<br><span class="en">Agents reply directly in the topic; the bot maps the topic back to the user and delivers the message.</span></p></div></div>
     </section>
 
+    <section id="web-api"><h2>网页客服 API / Web Support API</h2><div class="grid"><div class="card"><b class="ok">网页 → Telegram</b><p>网站后端创建访客会话，网页消息由 Bot 发到独立 Topic，并保留访客资料卡。<br><span class="en">A website backend creates the visitor session; browser messages appear in a dedicated topic through the bot.</span></p></div><div class="card"><b class="ok">Telegram → 网页</b><p>管理员或已授权成员回复后，网页通过增量游标获取客服消息。<br><span class="en">Admin and approved staff replies are exposed through cursor-based polling.</span></p></div></div><p><a href="API.html">交互式 API 文档</a> · <a href="openapi.json">OpenAPI JSON</a> · <a href="examples/web-client.html">网页客户端示例</a></p></section>
+
     <section id="setup"><h2>首次配置 / Setup</h2>
       <ol><li>通过 BotFather 创建 Bot 并取得 Token。<span class="en">Create a bot via @BotFather and get the token.</span></li><li>创建私有超级群，开启“话题 / Topics”。<span class="en">Create a private supergroup and enable Topics.</span></li><li>把 Bot 设为管理员，并授予管理话题、发送消息和删除消息权限。<span class="en">Add the bot as admin with Manage Topics, Send Messages, Delete Messages.</span></li><li>复制配置文件并填入 Token 与群 ID。<span class="en">Copy the config and fill in token and group ID.</span></li></ol>
       <div class="code-wrap"><button class="copy" data-copy="env">复制 Copy</button><pre id="env">cp .env.example .env
@@ -46,7 +48,11 @@
 # 编辑 .env / edit .env
 BOT_TOKEN=123456789:YOUR_TOKEN
 SUPPORT_GROUP_ID=-1001234567890
-DATA_FILE=./data/forumdesk.json</pre></div>
+DATA_FILE=./data/forumdesk.json
+HTTP_ADDR=:8080
+WEB_API_KEY=replace-with-a-long-random-value
+WEB_ALLOWED_ORIGINS=https://www.example.com
+WEB_RATE_LIMIT_PER_MINUTE=60</pre></div>
       <p class="note">Topic 没有独立头像。基础版会把用户头像作为 Topic 的第一张资料卡图片，视觉上实现接近的效果。<br><span class="en">Topics have no avatar; the bot uses the user's avatar as the first profile-card image to approximate one.</span></p>
     </section>
 
@@ -69,7 +75,7 @@ DATA_FILE=./data/forumdesk.json</pre></div>
 /protect off
 /protect</pre></div><p class="note">Bot 私聊采用逐条消息保护，开关状态和提示只显示在管理员 Topic；用户端不接收保护状态通知。Telegram 将 <code>protect_content</code> 定义为发送时参数，所以已有消息保持原状态，程序不替换或重发历史消息。<br><span class="en">Protection applies per-message in DMs; status and hints only appear in the admin topic — users receive no notification. Telegram defines <code>protect_content</code> as a send-time parameter, so existing messages keep their original state and are never replaced or resent.</span></p></section>
 
-    <section id="commands"><h2>管理员命令菜单 / Admin Command Menu</h2><div class="card"><p>程序启动时自动调用 Telegram <code>setMyCommands</code>。管理员在 Topic 输入 <code>/</code> 后会看到：<br><span class="en">The bot calls Telegram <code>setMyCommands</code> on startup. Admins typing <code>/</code> in a topic will see:</span></p><ul><li><code>/protect</code> — 查看或设置后续消息保护 / View or toggle protection for subsequent messages</li><li><code>/delete</code> — 回复消息后双端删除 / Delete a replied message on both ends</li><li><code>/clear</code> — 清空双方消息并保留资料卡 / Clear both sides, keep profile card</li><li><code>/clear_user</code> — 仅清空用户端 / Clear user side only</li><li><code>/help</code> — 显示完整说明 / Show full help</li></ul><p>用户私聊输入 <code>/</code> 时只显示 <code>/delete</code> 和 <code>/help</code>。<br><span class="en">Users only see <code>/delete</code> and <code>/help</code> in their private chat.</span></p></div></section>
+    <section id="commands"><h2>管理员命令菜单 / Admin Command Menu</h2><div class="card"><p>程序启动时自动调用 Telegram <code>setMyCommands</code>。管理员在 Topic 输入 <code>/</code> 后会看到：<br><span class="en">The bot calls Telegram <code>setMyCommands</code> on startup. Admins typing <code>/</code> in a topic will see:</span></p><ul><li><code>/protect</code> — 查看或设置后续消息保护 / View or toggle protection for subsequent messages</li><li><code>/delete</code> — 回复消息后双端删除 / Delete a replied message on both ends</li><li><code>/clear</code> — 清空双方消息并保留资料卡 / Clear both sides, keep profile card</li><li><code>/clear_user</code> — 仅清空用户端 / Clear user side only</li><li><code>/allow_staff</code> / <code>/deny_staff</code> — 按 Topic 授权或取消成员外发</li><li><code>/show</code> / <code>/hide</code> — 单条消息对客可见或仅内部可见</li><li><code>/staff</code> — 查看当前 Topic 授权成员</li><li>可见性授权控制消息是否外发；群内 Topic 的浏览范围由 Telegram 群权限负责</li><li><code>/help</code> — 显示完整说明 / Show full help</li></ul><p>用户私聊输入 <code>/</code> 时只显示 <code>/delete</code> 和 <code>/help</code>。<br><span class="en">Users only see <code>/delete</code> and <code>/help</code> in their private chat.</span></p></div></section>
 
     <section id="run"><h2>启动方式 / Run</h2>
       <div class="grid"><div class="card"><b>本机运行 / Local</b><p>适合开发调试。<span class="en">For development.</span></p><div class="code-wrap"><button class="copy" data-copy="local">复制 Copy</button><pre id="local">set -a
@@ -89,11 +95,15 @@ internal/bot/        Topic 双向路由 / two-way topic routing
 internal/config/     环境变量配置 / env config
 internal/store/      JSON 原子持久化 / atomic JSON persistence
 internal/telegram/   Telegram Bot API 客户端 / Bot API client
+internal/webapi/     网页客服 REST API / web support API
+API.html             交互式 API 文档 / interactive API docs
+openapi.json         OpenAPI 3.1 规格
+examples/            网页接入示例 / browser example
 data/                运行数据（自动创建）/ runtime data (auto-created)</pre></div></section>
 
     <section id="status"><h2>当前基础能力与边界 / Capabilities &amp; Roadmap</h2><div class="grid">
       <div class="card"><b class="ok">已经具备 / Available</b><ul><li>自动创建和复用 Topic / Auto topic creation &amp; reuse</li><li>文本、图片、语音、视频、文件等消息复制 / Text, photo, voice, video, document relay</li><li>客服与用户双向引用映射 / Two-way quote mapping</li><li>按 Topic 开关禁止转发/保存 / Per-topic content protection</li><li>单条双端删除 / Single-message two-side deletion</li><li>保留资料卡的双端清空与仅用户端清空 / Two-side or user-only clear keeping the profile card</li></ul></div>
-      <div class="card"><b class="warn">后续增强 / Roadmap</b><ul><li>封禁、关闭会话和客服认领按钮 / Ban, close &amp; claim buttons</li><li>相册批量消息保持分组 / Album grouping</li><li>PostgreSQL 多实例部署 / PostgreSQL multi-instance</li><li>监控、速率限制和管理后台 / Metrics, rate limits, admin dashboard</li></ul></div>
+      <div class="card"><b class="warn">后续增强 / Roadmap</b><ul><li>封禁、关闭会话和客服认领按钮 / Ban, close &amp; claim buttons</li><li>相册批量消息保持分组 / Album grouping</li><li>PostgreSQL 多实例部署 / PostgreSQL multi-instance</li><li>监控、客服认领统计和管理后台 / Metrics, assignment analytics &amp; admin dashboard</li></ul></div>
     </div></section>
     <footer>ForumDesk 基础版 Base · 配置仅通过环境变量注入，Bot Token 不写入代码或数据文件。 / Config via environment variables only; the bot token is never written to code or data files.</footer>
   </main>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ForumDesk Web API v1</title>
+  <style>
+    :root{--bg:#07111f;--panel:#101e31;--panel2:#14263d;--line:#29415f;--text:#edf5ff;--muted:#9db0c9;--blue:#62b0ff;--green:#52d39d;--amber:#ffd279}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0,#173d68 0,transparent 35%),var(--bg);color:var(--text);font:15px/1.65 system-ui,sans-serif}.layout{display:grid;grid-template-columns:250px minmax(0,940px);gap:36px;max-width:1260px;margin:auto;padding:34px 22px 80px}nav{position:sticky;top:20px;align-self:start;background:#0c1929e8;border:1px solid var(--line);border-radius:18px;padding:20px}nav strong{font-size:20px}nav a{display:block;color:var(--muted);text-decoration:none;padding:6px 0}nav a:hover{color:var(--blue)}header{padding:32px;border-radius:22px;background:linear-gradient(140deg,#17345b,#0d1d31);border:1px solid #34618d}h1{font-size:40px;line-height:1.15;margin:12px 0}.tag,.method{display:inline-flex;border-radius:999px;padding:3px 9px;font-size:12px}.tag{border:1px solid #3e7eb8;color:#abd8ff}.method{background:#174933;color:#87e8bd;margin-right:8px}section{margin-top:34px;scroll-margin-top:20px}h2{font-size:24px}.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:20px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.endpoint{border-left:4px solid var(--green)}code{color:#acd8ff}.code{position:relative}.copy{position:absolute;right:9px;top:9px;z-index:2;background:#18324f;color:#e8f4ff;border:1px solid #426487;border-radius:8px;padding:6px 9px;cursor:pointer}pre{margin:0;overflow:auto;padding:18px;background:#06101c;border:1px solid #203750;border-radius:12px;color:#d9ecff;font:13px/1.6 ui-monospace,monospace}.note{border-left:3px solid var(--amber);padding:10px 14px;background:#2b2515;color:#ffe2a9;border-radius:0 10px 10px 0}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px 8px;color:var(--muted)}th{color:var(--text)}input{width:100%;background:#071321;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px}.ok{color:var(--green)}@media(max-width:760px){.layout{display:block;padding:18px 12px 50px}nav{position:static;margin-bottom:18px}.grid{grid-template-columns:1fr}h1{font-size:31px}}
+  </style>
+</head>
+<body><div class="layout">
+  <nav><strong>ForumDesk API</strong><p><span class="tag">REST · v1</span></p><a href="#start">快速开始</a><a href="#auth">认证模型</a><a href="#create">创建会话</a><a href="#send">发送消息</a><a href="#list">读取消息</a><a href="#visibility">成员可见性</a><a href="#errors">错误与限流</a><a href="openapi.json">OpenAPI JSON</a><a href="examples/web-client.html">网页客户端示例</a></nav>
+  <main>
+    <header><span class="tag">ForumDesk Web API v1</span><h1>网页客服接入 Telegram Topic</h1><p>网页访客通过 REST API 发起会话，ForumDesk 在 Telegram 超级群创建独立 Topic。客户消息由 Bot 发入 Topic，已授权客服的回复则进入网页轮询队列。</p></header>
+
+    <section id="start"><h2>快速开始</h2><div class="grid"><div class="card"><b class="ok">1. 服务端建立会话</b><p>网站后端使用集成密钥创建会话，取得一次性返回的 <code>visitor_token</code>。</p></div><div class="card"><b class="ok">2. 浏览器收发消息</b><p>只把当前访客的会话 ID 和访客 Token 交给前端，前端用它发送和轮询。</p></div></div><label>API Base URL</label><input id="base" value="https://support.example.com"><p class="note"><code>WEB_API_KEY</code> 只放网站后端；浏览器仅持有单会话 <code>visitor_token</code>。</p></section>
+
+    <section id="auth"><h2>认证模型</h2><div class="card"><table><tr><th>凭据</th><th>用途</th><th>传递方式</th></tr><tr><td>WEB_API_KEY</td><td>网站后端创建会话</td><td><code>Authorization: Bearer API_KEY</code></td></tr><tr><td>visitor_token</td><td>当前访客收发消息</td><td><code>Authorization: Bearer VISITOR_TOKEN</code></td></tr></table></div></section>
+
+    <section id="create"><h2><span class="method">POST</span>/api/v1/conversations</h2><div class="card endpoint"><p>创建网页会话和对应 Telegram Topic。此接口使用集成密钥。</p><div class="code"><button class="copy" data-copy="create-curl">复制</button><pre id="create-curl">curl -X POST "$BASE/api/v1/conversations" \
+  -H "Authorization: Bearer API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "visitor_name": "Ada",
+    "email": "ada@example.com",
+    "external_id": "customer-7",
+    "page_url": "https://www.example.com/pricing"
+  }'</pre></div><h3>201 Response</h3><pre>{"data":{"id":"wc_...","visitor_token":"wv_...","status":"open","created_at":"2026-09-07T10:00:00Z"}}</pre></div></section>
+
+    <section id="send"><h2><span class="method">POST</span>/api/v1/conversations/{id}/messages</h2><div class="card endpoint"><p>访客发送 1–4000 字符的文本。可选的 <code>reply_to_message_id</code> 会在网页与 Telegram Topic 两端保留引用关系。</p><div class="code"><button class="copy" data-copy="send-js">复制</button><pre id="send-js">await fetch(`${BASE}/api/v1/conversations/${conversationId}/messages`, {
+  method: "POST",
+  headers: {
+    "Authorization": `Bearer ${visitorToken}`,
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    text: "我想了解商务方案",
+    reply_to_message_id: "wm_..." // 可选
+  })
+});</pre></div></div></section>
+
+    <section id="list"><h2><span class="method">GET</span>/api/v1/conversations/{id}/messages</h2><div class="card endpoint"><p>使用递增游标轮询：<code>after</code> 默认 0，<code>limit</code> 范围 1–100。</p><div class="code"><button class="copy" data-copy="poll-js">复制</button><pre id="poll-js">const response = await fetch(
+  `${BASE}/api/v1/conversations/${conversationId}/messages?after=${cursor}&limit=50`,
+  { headers: { "Authorization": `Bearer ${visitorToken}` } }
+);
+const payload = await response.json();
+cursor = payload.meta.next_cursor;</pre></div><p><code>direction</code> 为 <code>customer</code> 或 <code>staff</code>；<code>reply_to_message_id</code> 指向被引用的可见消息。当管理员隐藏已发消息时，队列返回 <code>event: message_hidden</code> 与 <code>target_message_id</code>，前端据此移除已渲染消息。</p></div></section>
+
+    <section id="visibility"><h2>Telegram 成员可见性</h2><div class="card"><table><tr><th>命令</th><th>作用</th></tr><tr><td><code>/allow_staff</code></td><td>管理员回复成员消息，允许其后续发言自动对客可见</td></tr><tr><td><code>/deny_staff</code></td><td>取消该成员在当前 Topic 的自动对客可见</td></tr><tr><td><code>/staff</code></td><td>查看当前 Topic 的授权成员</td></tr><tr><td><code>/show</code></td><td>回复某条内部消息，单独对客可见</td></tr><tr><td><code>/hide</code></td><td>回复某条已发消息，改为仅管理端可见</td></tr></table><p class="note">群管理员发言默认对客可见；普通成员默认只留在 Topic 内部。授权按 Topic 隔离；管理员和已授权成员在 Topic 内使用 Telegram 原生回复时，网页端也能取得引用消息 ID。</p><p class="note">这些命令控制消息是否外发给客户；成员能看到哪些 Topic 仍由 Telegram 超级群本身的成员与权限配置决定。</p></div></section>
+
+    <section id="errors"><h2>错误与限流</h2><div class="grid"><div class="card"><b>JSON 错误格式</b><pre>{"error":{"code":"validation_error","message":"..."}}</pre></div><div class="card"><b>状态码</b><p>400 JSON/游标错误 · 401 凭据错误 · 422 参数错误 · 429 限流 · 502 Telegram 上游错误</p></div></div><p>默认每个集成密钥/会话每分钟 60 次，通过 <code>WEB_RATE_LIMIT_PER_MINUTE</code> 调整。</p></section>
+  </main>
+</div><script>
+const base=document.getElementById('base');function sync(){document.querySelectorAll('pre').forEach(el=>{if(!el.dataset.raw)el.dataset.raw=el.textContent;el.textContent=el.dataset.raw.replaceAll('$BASE',base.value.replace(/\/$/,''));});}base.addEventListener('input',sync);sync();document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent);const old=btn.textContent;btn.textContent='已复制';setTimeout(()=>btn.textContent=old,1000);}));
+</script></body></html>
